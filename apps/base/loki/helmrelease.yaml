@@ -48,12 +48,16 @@ spec:
       # contact any remote nodes, so startup never blocks on DNS.
       memberlist:
         join_members: []
-      # Switch all ring KV stores from memberlist to inmemory. In a single-replica
-      # deployment the memberlist ring loses its one member after Mac sleep (the
-      # heartbeat pauses for the length of the sleep, exceeding the 10-minute
-      # forget_period), leaving every component with 0 healthy instances. The
-      # inmemory store lives entirely in-process and never times out between
-      # the components that share the same binary.
+      # Switch ring KV stores to inmemory for components that support it in
+      # Loki 3.6.x. In a single-replica deployment the memberlist ring loses its
+      # one member after Mac sleep (the heartbeat pauses for the length of the
+      # sleep, exceeding the 10-minute forget_period), leaving every component
+      # with 0 healthy instances. The inmemory store lives entirely in-process
+      # and never times out between the components that share the same binary.
+      #
+      # compactor.ring and query_scheduler.ring are intentionally omitted —
+      # those structs do not have a ring field in Loki 3.6.x and cause a
+      # config-parse error at startup ("field ring not found in type ...").
       ingester:
         lifecycler:
           ring:
@@ -61,14 +65,6 @@ spec:
               store: inmemory
             replication_factor: 1
       distributor:
-        ring:
-          kvstore:
-            store: inmemory
-      compactor:
-        ring:
-          kvstore:
-            store: inmemory
-      query_scheduler:
         ring:
           kvstore:
             store: inmemory
