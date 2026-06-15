@@ -139,6 +139,18 @@ spec:
       capabilities:
         drop: [ALL]
 
+    # Mount a writable emptyDir at /tmp in every scan Job pod.
+    # Trivy creates temporary directories under /tmp during image scanning;
+    # if the path does not exist in the container image the scan aborts with
+    # "unable to create temporary directory: stat /tmp/trivy-N: no such file
+    # or directory". An emptyDir provides a fresh, writable /tmp on every pod.
+    scanJobPodTemplateVolumes:
+      - name: tmp
+        emptyDir: {}
+    scanJobPodTemplateVolumeMounts:
+      - name: tmp
+        mountPath: /tmp
+
     # Disable ServiceMonitor — use additionalScrapeConfigs instead.
     serviceMonitor:
       enabled: false
