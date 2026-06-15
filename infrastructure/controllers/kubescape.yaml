@@ -63,6 +63,14 @@ spec:
   # inside the emptyDir, so the process sees a directory instead of a file and
   # every scan fails. Replace the volume with a ConfigMap that has a
   # config.json key so the mount produces a regular file.
+  #
+  # The patch uses RFC 6902 format (op: replace) rather than a strategic merge
+  # patch because the SMP $patch: replace directive is silently ignored by the
+  # Kustomize version bundled in Flux — it merges configMap onto the existing
+  # volume entry and keeps the emptyDir field. The RFC 6902 op replaces the
+  # entire element at the specified path index with no ambiguity.
+  # Index 0 is stable for this chart: kubescape-volume is always the first
+  # volume in the chart-generated Deployment spec.
   postRenderers:
     - kustomize:
         patches:
@@ -70,21 +78,15 @@ spec:
               kind: Deployment
               name: kubescape
             patch: |
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: kubescape
-              spec:
-                template:
-                  spec:
-                    volumes:
-                      - name: kubescape-volume
-                        $patch: replace
-                        configMap:
-                          name: kubescape-config
-                          items:
-                            - key: config.json
-                              path: config.json
+              - op: replace
+                path: /spec/template/spec/volumes/0
+                value:
+                  name: kubescape-volume
+                  configMap:
+                    name: kubescape-config
+                    items:
+                      - key: config.json
+                        path: config.json
 ---
 # Provides the config.json file that the kubescape scanner reads at startup.
 # The chart generates an emptyDir for this volume; see the postRenderers patch
