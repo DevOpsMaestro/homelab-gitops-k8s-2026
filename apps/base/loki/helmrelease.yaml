@@ -38,6 +38,16 @@ spec:
         type: filesystem
       server:
         log_level: warn
+      # Override the chart-generated memberlist.join_members with an empty list.
+      # The chart always generates a join_members entry pointing to the headless
+      # memberlist Service, even with replicas=1. During a Helm upgrade the
+      # StatefulSet pod is replaced: the old pod terminates, the headless Service
+      # briefly has no ready endpoints, and Loki's memberlist fast-join fails with
+      # "no such host". An empty join_members removes this DNS dependency entirely;
+      # the memberlist subsystem is still initialized but it does not attempt to
+      # contact any remote nodes, so startup never blocks on DNS.
+      memberlist:
+        join_members: []
       # Switch all ring KV stores from memberlist to inmemory. In a single-replica
       # deployment the memberlist ring loses its one member after Mac sleep (the
       # heartbeat pauses for the length of the sleep, exceeding the 10-minute
