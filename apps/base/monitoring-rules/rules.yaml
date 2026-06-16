@@ -137,6 +137,32 @@ spec:
               Query Loki for details:
               {app="falcosidekick"} | json | priority=~"Critical|Emergency"
 
+    # ── Loki ingestion rate limiting ──────────────────────────────────────────
+    - name: loki.ingestion
+      interval: 1m
+      rules:
+        - alert: LokiIngestionRateLimitHit
+          # Counts push requests rejected by Loki's per-stream rate limiter.
+          # A non-zero rate means log entries are being silently dropped.
+          # Common cause: post-sleep burst from Promtail and Falcosidekick
+          # flushing buffered output simultaneously.
+          expr: |
+            increase(
+              loki_request_duration_seconds_count{
+                route="/loki/api/v1/push",
+                status_code="429"
+              }[5m]
+            ) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Loki is dropping log entries due to per-stream rate limit"
+            description: >-
+              {{ $value }} push requests returned HTTP 429 in the last 5 minutes.
+              Log entries are being silently discarded. Consider raising
+              per_stream_rate_limit_burst in loki.limits_config.
+
     # ── Security: Kyverno policy enforcement ──────────────────────────────────
     - name: security.kyverno
       interval: 5m

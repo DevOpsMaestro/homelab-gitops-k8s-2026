@@ -25,6 +25,7 @@ spec:
     crds: CreateReplace
     remediation:
       retries: 3
+      remediateLastFailure: true
   upgrade:
     crds: CreateReplace
     cleanupOnFail: true

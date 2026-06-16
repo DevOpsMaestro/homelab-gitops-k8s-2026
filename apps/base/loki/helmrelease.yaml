@@ -87,6 +87,12 @@ spec:
               period: 24h
       limits_config:
         retention_period: 168h   # 7 days
+        # After a Mac sleep the host clock pauses; when the machine wakes, all
+        # log shippers flush their buffered output at once. The default
+        # per_stream_rate_limit_burst (default ~4 MB) is too small to absorb
+        # this burst and Loki silently drops the overflow with HTTP 429.
+        # 20 MB provides enough headroom for a typical multi-minute sleep.
+        per_stream_rate_limit_burst: 20MB
 
     singleBinary:
       replicas: 1
