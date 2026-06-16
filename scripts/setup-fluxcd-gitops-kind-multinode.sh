@@ -118,6 +118,25 @@ networking:
 nodes:
   - role: control-plane
     image: kindest/node:${K8S_VER}
+    # Tune the single-instance etcd embedded in the KinD control-plane.
+    # Default quota-backend-bytes is 2 GiB; this stack installs 120+ CRDs whose
+    # validation schemas are large — raising the quota to 8 GiB prevents the
+    # "mvcc: database space exceeded" alarm that forces a defrag before any write.
+    # auto-compaction keeps the MVCC history bounded. Without compaction, the
+    # revision count grows indefinitely after every Flux reconcile, causing
+    # watch-mark-send-over-slow-network warnings and slow LIST responses. A
+    # 1-hour periodic compaction keeps the live revisions in a small window that
+    # etcd can serve quickly.
+    kubeadmConfigPatches:
+      - |
+        apiVersion: kubeadm.k8s.io/v1beta3
+        kind: ClusterConfiguration
+        etcd:
+          local:
+            extraArgs:
+              quota-backend-bytes: "8589934592"
+              auto-compaction-retention: "1"
+              auto-compaction-mode: periodic
     # extraPortMappings forward localhost ports into the KinD node container.
     #
     # Port 8888 (not a NodePort) is used instead of 30080 because Cilium's kube-proxy
