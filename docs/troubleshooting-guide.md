@@ -87,7 +87,7 @@ Traffic path: `localhost:8080 → KinD extraPortMapping (containerPort 8888) →
 ### Prerequisite — /etc/hosts (One-Time)
 
 ```bash
-echo "127.0.0.1 grafana.local prometheus.local" | sudo tee -a /etc/hosts
+echo "127.0.0.1 grafana.local prometheus.local httpbin-contour.local" | sudo tee -a /etc/hosts
 ```
 
 ### Quick Reference

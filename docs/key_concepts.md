@@ -26,7 +26,7 @@ Manages Pods that require a stable identity and dedicated persistent storage. Ea
 
 ### Namespace
 
-A virtual partition for grouping resources, applying access controls, and scoping policies. Namespaces are not a hard security boundary — Pods in different Namespaces can communicate unless a NetworkPolicy prevents it. This cluster uses approximately 15 Namespaces to separate concerns and target Kyverno policies per-namespace.
+A virtual partition for grouping resources, applying access controls, and scoping policies. Namespaces are not a hard security boundary — Pods in different Namespaces can communicate unless a NetworkPolicy prevents it. This cluster uses approximately 20 Namespaces to separate concerns and target Kyverno policies per-namespace.
 
 ### Service
 
@@ -96,6 +96,29 @@ The **Container Network Interface (CNI)** assigns IP addresses to Pods and route
 - Runs **Hubble**, a built-in observability layer that shows live traffic flows, dropped packets, and per-service metrics without any application code changes
 
 eBPF programs execute inside the Linux kernel without modifying kernel source. Cilium uses them to intercept and process every network packet at the lowest possible level.
+
+---
+
+## Network Segmentation — NetworkPolicy
+
+A **NetworkPolicy** is a Kubernetes object that restricts which pods may communicate with which other pods. Without any NetworkPolicy in place, every pod in every namespace can reach every other pod — the cluster is effectively flat. Once any NetworkPolicy selects a pod, only the traffic that policy explicitly permits is allowed; all other traffic is silently dropped.
+
+This cluster uses a **default-deny** model. Every namespace receives a policy that blocks all ingress and egress by default. Subsequent allow-policies then open only the specific communication paths each workload actually requires. The Cilium CNI enforces these policies using eBPF kernel programs — no iptables rules are involved.
+
+**What a default-deny model provides:**
+
+If an attacker gains remote code execution inside any container, they cannot reach other services in the cluster. A compromised `demo` pod cannot connect to Prometheus, Loki, Grafana, or the BOINC credentials secret — the only connections it can make are the ones the policy explicitly permits.
+
+**An example of how allow-policies work:**
+
+Prometheus must scrape metrics from pods in many different namespaces. Because those target namespaces and ports change as new components are added, Prometheus pods receive an unrestricted egress policy rather than a fixed list of targets. All other pods in the `observability` namespace remain limited to DNS, the Kubernetes API server, and intra-namespace communication. The least-privilege principle is applied as narrowly as each workload permits.
+
+**CiliumNetworkPolicy** extends standard Kubernetes NetworkPolicy with two capabilities needed in this cluster:
+
+- `fromEntities: kube-apiserver` — matches traffic from the Kubernetes API server, which originates from the control-plane's host network and has no pod-CIDR IP address. Standard NetworkPolicy cannot match it.
+- `fromEntities: remote-node` — matches traffic from host-network pods on other cluster nodes.
+
+Standard NetworkPolicy cannot express either of these because neither the API server nor a remote node has an IP address inside the pod CIDR range.
 
 ---
 
@@ -299,14 +322,14 @@ kubectl get vulnerabilityreports -A
 
 **Observability** means being able to answer "what is the cluster doing right now?" without modifying any application code. This cluster uses six tools that each capture a different type of signal and feed them into a single dashboard system.
 
-| Tool | What It Captures | Chart Version |
-|------|-----------------|---------------|
-| **Prometheus** (`kube-prometheus-stack`) | Metrics — numbers over time (CPU %, request rate, error count) | 86.2.2 |
-| **Grafana** | Dashboards — visual graphs and tables built from Prometheus and Loki data | 10.5.15 |
-| **Loki** | Logs — the text output of every container in the cluster | 7.0.0 |
-| **Promtail** | Log collector — a DaemonSet that reads log files on each node and ships them to Loki | 6.17.1 |
-| **Grafana Tempo** | Distributed traces — records the full path a request takes through multiple services | 1.24.4 |
-| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.158.1 |
+| Tool | What It Captures | Chart Version | App Version |
+|------|-----------------|---------------|-------------|
+| **Prometheus** (`kube-prometheus-stack`) | Metrics — numbers over time (CPU %, request rate, error count) | 86.2.3 | v0.91.0 (operator) |
+| **Grafana** | Dashboards — visual graphs and tables built from Prometheus and Loki data | 10.5.15 | 12.3.1 |
+| **Loki** | Logs — the text output of every container in the cluster | 7.0.0 | 3.6.7 |
+| **Promtail** | Log collector — a DaemonSet that reads log files on each node and ships them to Loki | 6.17.1 | 3.5.1 |
+| **Grafana Tempo** | Distributed traces — records the full path a request takes through multiple services | 1.24.4 | 2.9.0 |
+| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.158.1 | 0.153.0 |
 
 **How they connect:**
 
