@@ -59,3 +59,5 @@ spec:
       hostpathClass:
         enabled: true
         isDefaultClass: true
+      analytics:
+        enabled: false
