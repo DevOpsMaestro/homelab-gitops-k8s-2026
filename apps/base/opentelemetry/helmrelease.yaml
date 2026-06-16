@@ -169,24 +169,10 @@ spec:
         telemetry:
           logs:
             level: warn
-          # The chart 0.158.x generates the legacy service.telemetry.resource
-          # inline map format (host.name: ..., k8s.namespace.name: ...) from its
-          # default values. OTel Collector 0.153.0 warns about this format and
-          # prefers resource.attributes (array). Adding the attributes array here
-          # causes the collector to use the new format; when attributes is non-empty
-          # the collector suppresses the legacy-format warning and ignores the
-          # chart-injected inline map keys.
-          resource:
-            attributes:
-              - name: host.name
-                value: ${env:OTEL_K8S_NODE_NAME}
-              - name: k8s.namespace.name
-                value: ${env:OTEL_K8S_NAMESPACE}
-              - name: k8s.node.ip
-                value: ${env:OTEL_K8S_NODE_IP}
-              - name: k8s.node.name
-                value: ${env:OTEL_K8S_NODE_NAME}
-              - name: k8s.pod.ip
-                value: ${env:OTEL_K8S_POD_IP}
-              - name: k8s.pod.name
-                value: ${env:OTEL_K8S_POD_NAME}
+          # resource.attributes (new format) cannot coexist with the chart's
+          # default inline map keys (host.name, k8s.namespace.name, ...) because
+          # OTel Collector 0.153.0 rejects the combination with a validation error.
+          # Helm deep-merge cannot remove chart-default keys, so we cannot cleanly
+          # switch to the new format without a postRenderer. The legacy inline map
+          # triggers a deprecation WARNING (not an error) and is functionally
+          # correct — accept it until the chart updates its defaults.
