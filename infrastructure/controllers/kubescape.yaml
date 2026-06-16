@@ -58,46 +58,6 @@ spec:
       kubescapeOffline: enable
     configurations:
       prometheusAnnotations: disable
-  # The chart mounts an emptyDir at /home/nonroot/.kubescape/config.json via
-  # subPath: config.json. Kubernetes pre-creates the subPath as a directory
-  # inside the emptyDir, so the process sees a directory instead of a file and
-  # every scan fails. Replace the volume with a ConfigMap that has a
-  # config.json key so the mount produces a regular file.
-  #
-  # The patch uses RFC 6902 format (op: replace) rather than a strategic merge
-  # patch because the SMP $patch: replace directive is silently ignored by the
-  # Kustomize version bundled in Flux — it merges configMap onto the existing
-  # volume entry and keeps the emptyDir field. The RFC 6902 op replaces the
-  # entire element at the specified path index with no ambiguity.
-  # Index 0 is stable for this chart: kubescape-volume is always the first
-  # volume in the chart-generated Deployment spec.
-  postRenderers:
-    - kustomize:
-        patches:
-          - target:
-              kind: Deployment
-              name: kubescape
-            patch: |
-              - op: replace
-                path: /spec/template/spec/volumes/0
-                value:
-                  name: kubescape-volume
-                  configMap:
-                    name: kubescape-config
-                    items:
-                      - key: config.json
-                        path: config.json
----
-# Provides the config.json file that the kubescape scanner reads at startup.
-# The chart generates an emptyDir for this volume; see the postRenderers patch
-# above for why a ConfigMap is used instead.
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: kubescape-config
-  namespace: kubescape
-data:
-  config.json: "{}"
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
