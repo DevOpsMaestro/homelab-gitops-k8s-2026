@@ -1,4 +1,18 @@
 ---
+# BOINC is a pure compute client — it initiates connections to project servers
+# but never listens for inbound connections. Default-deny covers all pods in this
+# namespace; the egress policy below then allows only what BOINC actually needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: boinc
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
