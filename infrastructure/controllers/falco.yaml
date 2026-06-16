@@ -151,6 +151,21 @@ spec:
               values:
                 - [mount-cgroup]
                 - [apply-sysctl-overwrites]
+      istio-exceptions.yaml: |-
+        # Istio injects a Python health-check sidecar (/app/sidecar.py) in pods
+        # that have sidecar injection enabled. The sidecar contacts the Kubernetes
+        # API server to check pod readiness, which triggers the
+        # "Contact K8S API Server From Container" rule. This is expected behaviour
+        # for the Istio control-plane health subsystem, not an attack.
+        - rule: Contact K8S API Server From Container
+          override:
+            exceptions: append
+          exceptions:
+            - name: istio_sidecar_health_check
+              fields: [proc.cmdline]
+              comps: [startswith]
+              values:
+                - ["python -u /app/sidecar.py"]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
