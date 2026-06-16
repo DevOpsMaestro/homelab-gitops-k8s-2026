@@ -65,6 +65,14 @@ spec:
       analytics:
         check_for_updates: false
         reporting_enabled: false
+      # Redirect grafana.com outbound traffic to localhost. In a no-egress KinD
+      # environment grafana.com is unreachable, so the angular pattern updater,
+      # plugin installer, and public-key retriever all time out at startup and
+      # log errors. Setting grafana_com.url to an unrouteable loopback address
+      # causes these HTTP requests to fail immediately (connection refused) rather
+      # than waiting for a 30-second timeout, removing the slow startup noise.
+      grafana_com:
+        url: "http://127.0.0.1:1"
       plugins:
         allow_loading_unsigned_plugins: ""
         # Grafana 12 preinstalls four "Drilldown" apps (exploretraces,
