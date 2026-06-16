@@ -50,6 +50,8 @@ spec:
 
     image:
       repository: otel/opentelemetry-collector-contrib
+      tag: "0.153.0"
+      digest: "sha256:93aad750175cbf1a973ae1c5886c3371f4d800f61be25cdd26870b8441ffe9fa"
 
     podLabels:
       sidecar.istio.io/inject: "false"
@@ -167,3 +169,24 @@ spec:
         telemetry:
           logs:
             level: warn
+          # The chart 0.158.x generates the legacy service.telemetry.resource
+          # inline map format (host.name: ..., k8s.namespace.name: ...) from its
+          # default values. OTel Collector 0.153.0 warns about this format and
+          # prefers resource.attributes (array). Adding the attributes array here
+          # causes the collector to use the new format; when attributes is non-empty
+          # the collector suppresses the legacy-format warning and ignores the
+          # chart-injected inline map keys.
+          resource:
+            attributes:
+              - name: host.name
+                value: ${env:OTEL_K8S_NODE_NAME}
+              - name: k8s.namespace.name
+                value: ${env:OTEL_K8S_NAMESPACE}
+              - name: k8s.node.ip
+                value: ${env:OTEL_K8S_NODE_IP}
+              - name: k8s.node.name
+                value: ${env:OTEL_K8S_NODE_NAME}
+              - name: k8s.pod.ip
+                value: ${env:OTEL_K8S_POD_IP}
+              - name: k8s.pod.name
+                value: ${env:OTEL_K8S_POD_NAME}
