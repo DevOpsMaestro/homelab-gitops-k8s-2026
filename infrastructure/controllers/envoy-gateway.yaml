@@ -19,6 +19,19 @@ metadata:
   labels:
     istio-injection: disabled
 ---
+# observability is pre-created here at the infrastructure layer so it exists
+# when Envoy Gateway installs. With watch.namespaces configured below, the
+# Envoy Gateway chart creates a Role and RoleBinding in every watched namespace
+# during Helm install. The observability namespace is normally created by
+# kube-prometheus-stack (apps layer), which runs after infrastructure, so
+# without this pre-creation the Helm install fails with "namespaces not found".
+# kube-prometheus-stack applies its own labels via SSA with a separate field
+# manager; Kubernetes merges both field managers cleanly.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+---
 # Envoy Gateway installs its own CRDs (EnvoyProxy, GatewayClass, BackendTrafficPolicy,
 # etc.) via the Helm chart. The Gateway API CRDs (Gateway, HTTPRoute, GatewayClass) are
 # installed by the setup script (step 4) before Flux bootstrap, so they exist when this
