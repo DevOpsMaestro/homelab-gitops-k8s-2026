@@ -74,6 +74,24 @@ spec:
         logging:
           level:
             default: warn
+        provider:
+          kubernetes:
+            # Restrict the controller's informer cache to only these namespaces.
+            # Without an explicit watch.namespaces list the cache defaults to
+            # cluster-scoped, but Envoy Gateway 1.8.x has a known behaviour where
+            # its Service informer fails to populate for namespaces that contain
+            # only HTTPRoute backends (not Gateway API control-plane objects). The
+            # controller logs a continuous "Service not found" error loop for
+            # observability-grafana and observability-kube-prometh-prometheus even
+            # though routing works correctly. Switching to explicit namespace-scoped
+            # watch eliminates the error loop because the cache is initialised for
+            # all listed namespaces unconditionally at startup.
+            watch:
+              type: Namespaces
+              namespaces:
+                - envoy-gateway-system
+                - envoy-ingress
+                - observability
 ---
 # ── envoy-gateway-system (controller) ────────────────────────────────────────
 apiVersion: networking.k8s.io/v1
