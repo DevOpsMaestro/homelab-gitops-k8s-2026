@@ -1,6 +1,6 @@
 # Trivy Operator — Vulnerability & Security Scanning
 
-Cluster: `flux-kind` · Operator namespace: `trivy-system` · Config: `infrastructure/controllers/trivy.yaml`
+Cluster: `flux-kind` · Operator namespace: `trivy-system` · Chart: `0.33.1` · App: `0.31.1` · Config: `infrastructure/controllers/trivy.yaml`
 
 ---
 

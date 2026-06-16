@@ -14,7 +14,7 @@ This document records Kubescape scan findings that have been reviewed and formal
 **Severity:** Medium
 
 **Description:**
-The Grafana Helm chart injects the admin password into the pod via the `GF_SECURITY_ADMIN_PASSWORD` environment variable. This is an internal chart behaviour triggered by the `adminPassword` values key and cannot be modified without forking the upstream chart.
+The Grafana Helm chart injects the admin password into the pod via the `GF_SECURITY_ADMIN_PASSWORD` environment variable. This is an internal chart behavior triggered by the `adminPassword` values key and cannot be modified without forking the upstream chart.
 
 **Rationale for acceptance:**
 - The secret value is sourced from a Kubernetes `Secret` object (`grafana-admin-secret`) via Flux's `valuesFrom` mechanism, not hardcoded in any manifest.

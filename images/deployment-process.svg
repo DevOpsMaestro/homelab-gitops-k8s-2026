@@ -53,12 +53,12 @@
   <!-- two side-by-side cards -->
   <rect x="20" y="296" width="570" height="78" rx="8" fill="white" stroke="#C2410C" stroke-width="1.5"/>
   <text x="305" y="315" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Pre-pull &amp; load Cilium images</text>
-  <text x="305" y="330" text-anchor="middle" font-size="9" fill="#475569">Pull v1.19.4 images from registry (including cilium-envoy, hubble-relay)</text>
+  <text x="305" y="330" text-anchor="middle" font-size="9" fill="#475569">Pull v1.19.5 images from registry (including cilium-envoy, hubble-relay)</text>
   <text x="305" y="345" text-anchor="middle" font-size="9" fill="#475569">docker save | ctr import → all 3 KinD nodes in parallel</text>
   <text x="305" y="360" text-anchor="middle" font-size="9" fill="#475569">--platform linux/arm64 (Apple Silicon)</text>
 
   <rect x="610" y="296" width="570" height="78" rx="8" fill="white" stroke="#C2410C" stroke-width="1.5"/>
-  <text x="895" y="315" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">helm install cilium v1.19.4  (direct — bypasses Flux)</text>
+  <text x="895" y="315" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">helm install cilium v1.19.5  (direct — bypasses Flux)</text>
   <text x="895" y="330" text-anchor="middle" font-size="9" fill="#475569">kubeProxyReplacement=true  ·  routingMode=tunnel  ·  tunnelProtocol=vxlan</text>
   <text x="895" y="345" text-anchor="middle" font-size="9" fill="#475569">Hubble metrics: DNS, drop, TCP, flow, port-distribution, ICMP, HTTPv2</text>
   <text x="895" y="360" text-anchor="middle" font-size="9" fill="#475569">Wait: cilium DaemonSet (300s)  ·  cilium-operator (120s)  ·  CoreDNS (120s)</text>

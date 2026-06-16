@@ -75,7 +75,7 @@
   <!-- 5 cards: edges 168,344,520,696,872  centers 248,424,600,776,952 -->
   <rect x="168" y="209" width="160" height="46" rx="8" fill="white" stroke="#0891B2" stroke-width="1.5"/>
   <text x="248" y="227" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Cilium</text>
-  <text x="248" y="242" text-anchor="middle" font-size="9"  fill="#475569">v1.19.4 · CNI + eBPF</text>
+  <text x="248" y="242" text-anchor="middle" font-size="9"  fill="#475569">v1.19.5 · CNI + eBPF</text>
 
   <rect x="344" y="209" width="160" height="46" rx="8" fill="white" stroke="#0891B2" stroke-width="1.5"/>
   <text x="424" y="227" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Hubble</text>

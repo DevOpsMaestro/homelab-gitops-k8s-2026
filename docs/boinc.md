@@ -34,6 +34,19 @@ Project credentials are stored in a SOPS-encrypted Secret (`boinc-projects-secre
 - **First start** — files do not exist on the host. `cp -n` copies them. BOINC reads them on startup and attaches to both projects.
 - **Restart** — files already exist from the previous run. `cp -n` skips them. BOINC preserves its full project state, including task progress and downloaded work units.
 
+### Network Policy
+
+The `boinc` namespace uses a **default-deny** NetworkPolicy that blocks all ingress and all egress by default. A second policy then permits only the traffic BOINC actually requires:
+
+| Direction | Port | Purpose |
+|-----------|------|---------|
+| Egress | 53 UDP/TCP | DNS resolution |
+| Egress | 80, 443 TCP | BOINC project server communication |
+
+No ingress is allowed. BOINC is a pure compute client — it connects outward to project servers and never accepts inbound connections. The Cilium CNI enforces both policies using eBPF.
+
+Source file: [apps/base/boinc/netpol.yaml](../apps/base/boinc/netpol.yaml)
+
 ### CPU Limit and Thermal Management
 
 The DaemonSet is capped at `1000m` (1 CPU core out of 10 on the M5 chip). On the passively cooled MacBook Air M5, this keeps peak core temperatures below 65°C. Raising the limit above 1500m pushes cores to 74°C+, which is within Apple Silicon's safe operating range but above the thermal target for this cluster.

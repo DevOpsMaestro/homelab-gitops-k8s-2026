@@ -191,37 +191,40 @@ flux-system (GitRepository)
 
 ## Deployed Components
 
-| Component | Chart / Source | Version | Namespace | Notes |
-|---|---|---|---|---|
-| Cilium CNI | cilium/cilium | 1.19.4 | kube-system | |
-| Hubble Relay | (bundled with Cilium) | 1.19.4 | kube-system | |
-| Hubble UI | (bundled with Cilium) | 0.13.1 | kube-system | Disabled by default; enable via `hubble.ui.enabled: true` in `cilium.yaml` |
-| cert-manager | cert-manager/cert-manager | v1.20.2 | cert-manager | |
-| OpenEBS localpv | openebs/openebs | 4.5.0 | openebs | |
-| istio-base | istio/base | 1.30.1 | istio-system | |
-| istiod | istio/istiod | 1.30.1 | istio-system | |
-| Gateway API CRDs | kubernetes-sigs/gateway-api | v1.2.1 | (cluster-scoped) | |
-| Envoy Gateway | envoy-gateway/gateway | 1.8.1 | envoy-gateway-system | |
-| Envoy Gateway data-plane | gatewayClassName: eg | 1.8.1 | envoy-ingress | Auto-provisioned by Envoy Gateway controller; uses Gateway API (HTTPRoute) |
-| Contour | projectcontour/contour | 0.6.0 (app v1.33.5) | contour | HTTPProxy CRD control plane; streams xDS to its own Envoy DaemonSet on gRPC port 8001 |
-| Contour Envoy data-plane | (bundled with Contour chart) | 0.6.0 (app v1.33.5) | contour | DaemonSet data plane; separate from Envoy Gateway auto-provisioned pods |
-| Metrics Server | metrics-server/metrics-server | 3.13.1 | metrics-server | Powers `kubectl top` and HPA; `--kubelet-insecure-tls` required for KinD |
-| kube-prometheus-stack | prometheus-community/kube-prometheus-stack | 86.2.2 | observability | |
-| Grafana | grafana/grafana | 10.5.15 | observability | |
-| Loki | grafana/loki | 7.0.0 | observability | |
-| Promtail | grafana/promtail | 6.17.1 | observability | |
-| Grafana Tempo | grafana/tempo | 1.24.4 | observability | Single-binary mode; trace backend for the OTel pipeline |
-| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.158.1 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
-| Tetragon | cilium/tetragon | 1.7.0 | tetragon | |
-| Kyverno | kyverno/kyverno | 3.8.1 | kyverno | |
-| Kubescape | kubescape/kubescape-operator | 1.40.2 | kubescape | NSA + MITRE continuous scan; vulnerability scan disabled for KinD |
-| Falco + Falcosidekick | falcosecurity/falco | 9.1.0 | falco | |
-| Trivy Operator | aquasecurity/trivy-operator | 0.33.1 | trivy-system | Image CVE scanning — VulnerabilityReport CRDs + Prometheus metrics; `ignoreUnfixed: true` |
-| demo (httpbin) | kennethreitz/httpbin | @sha256 digest pin | demo | No versioned tags published; pinned by digest |
-| iperf3 server | networkstatic/iperf3 | multiarch | iperf3 | TCP bandwidth measurement; BackendTrafficPolicy enforces maxConnections: 10 circuit-breaker |
-| BOINC | boinc/client | arm64v8 | boinc | Voluntary compute — Rosetta@Home + Einstein@Home; capped at 1 CPU core for thermal management |
-| Renovate | renovatebot/github-action | (GitHub Actions workflow) | — | Automated dependency PRs for Helm charts, images, GitHub Actions, and CI tool pins |
-| Gitleaks | gitleaks/gitleaks | (CI workflow pin) | — | Secret scanning on every PR — detects accidentally committed credentials before merge |
+The "Chart Version" column is the Helm chart release version. The "App Version" column is the version of the software the chart deploys — the number that appears in `docker ps` or the application's own `--version` flag. These two numbers often differ.
+
+| Component | Chart / Source | Chart Version | App Version | Namespace | Notes |
+|---|---|---|---|---|---|
+| Flux CD | flux bootstrap | — | v2.8.8 | flux-system | Managed in `clusters/kind/flux-system/gotk-components.yaml` — do not edit manually |
+| Cilium CNI | cilium/cilium | 1.19.4 | v1.19.5 | kube-system | |
+| Hubble Relay | (bundled with Cilium) | 1.19.4 | v1.19.5 | kube-system | |
+| Hubble UI | (bundled with Cilium) | — | 0.13.1 | kube-system | Disabled by default; enable via `hubble.ui.enabled: true` in `cilium.yaml` |
+| cert-manager | cert-manager/cert-manager | v1.20.2 | v1.20.2 | cert-manager | |
+| OpenEBS localpv | openebs/openebs | 4.5.0 | 4.5.0 | openebs | |
+| istio-base | istio/base | 1.30.1 | 1.30.1 | istio-system | |
+| istiod | istio/istiod | 1.30.1 | 1.30.1 | istio-system | |
+| Gateway API CRDs | kubernetes-sigs/gateway-api | — | v1.2.1 | (cluster-scoped) | |
+| Envoy Gateway | envoy-gateway/gateway-helm | 1.8.1 | v1.8.1 | envoy-gateway-system | |
+| Envoy Gateway data-plane | gatewayClassName: eg | — | distroless-v1.38.1 | envoy-gateway-system | Auto-provisioned by Envoy Gateway controller when the `Gateway` CR is created; uses Gateway API (HTTPRoute) |
+| Contour | projectcontour/contour | 0.6.0 | 1.33.5 | contour | HTTPProxy CRD control plane; streams xDS to its Envoy DaemonSet over gRPC port 8001 |
+| Contour Envoy data-plane | (bundled with Contour chart) | 0.6.0 | v1.35.10 | contour | DaemonSet data plane; separate from the pods auto-provisioned by Envoy Gateway |
+| Metrics Server | metrics-server/metrics-server | 3.13.1 | 0.8.1 | metrics-server | Powers `kubectl top` and HPA; `--kubelet-insecure-tls` required for KinD |
+| kube-prometheus-stack | prometheus-community/kube-prometheus-stack | 86.2.3 | v0.91.0 (operator) | observability | |
+| Grafana | grafana/grafana | 10.5.15 | 12.3.1 | observability | |
+| Loki | grafana/loki | 7.0.0 | 3.6.7 | observability | |
+| Promtail | grafana/promtail | 6.17.1 | 3.5.1 | observability | |
+| Grafana Tempo | grafana/tempo | 1.24.4 | 2.9.0 | observability | Single-binary mode; trace backend for the OTel pipeline |
+| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.158.1 | 0.153.0 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
+| Tetragon | cilium/tetragon | 1.7.0 | 1.7.0 | tetragon | |
+| Kyverno | kyverno/kyverno | 3.8.1 | v1.18.1 | kyverno | |
+| Kubescape | kubescape/kubescape-operator | 1.40.2 | v4.0.8 | kubescape | NSA + MITRE continuous scan; vulnerability scan disabled for KinD |
+| Falco + Falcosidekick | falcosecurity/falco | 9.1.0 | 0.44.1 / 2.32.0 | falco | |
+| Trivy Operator | aquasecurity/trivy-operator | 0.33.1 | 0.31.1 | trivy-system | Image CVE scanning — VulnerabilityReport CRDs + Prometheus metrics; `ignoreUnfixed: true` |
+| demo (httpbin) | kennethreitz/httpbin | — | @sha256:599fe5… | demo | No versioned tags published; pinned by digest |
+| iperf3 server | networkstatic/iperf3 | — | multiarch | iperf3 | TCP bandwidth measurement; BackendTrafficPolicy enforces `maxConnections: 10` circuit-breaker |
+| BOINC | boinc/client | — | arm64v8 | boinc | Voluntary compute — Rosetta@Home + Einstein@Home; capped at 1 CPU core for thermal management |
+| Renovate | renovatebot/github-action | — | — | — | Automated dependency PRs for Helm charts, images, GitHub Actions, and CI tool pins |
+| Gitleaks | gitleaks/gitleaks | — | — | — | Secret scanning on every PR — detects accidentally committed credentials before merge |
 
 ## Container Images
 
@@ -241,24 +244,25 @@ Images referenced directly in manifests (outside of Helm charts). Helm-managed w
 
 The versions below were validated together. When upgrading a component, verify compatibility with its neighbours — Istio and Envoy Gateway both consume Gateway API CRDs, and Cilium + Istio share the sidecar interception ports.
 
-| Component | Validated Version | Constrained By |
-|---|---|---|
-| Kubernetes (KinD node) | v1.36.1 | `K8S_VER` in `versions.env` |
-| Cilium | 1.19.4 | `cilium.yaml` chart constraint + `versions.env` |
-| Istio | 1.30.1 | `istio.yaml` chart constraint + `versions.env` |
-| Envoy Gateway | 1.8.1 | `envoy-gateway.yaml` + `versions.env` |
-| Contour | 0.6.0 (app v1.33.5) | `contour.yaml` chart constraint `0.x`; `CONTOUR_VERSION` in `versions.env` (informational — not pre-installed by bootstrap) |
-| Gateway API CRDs | v1.2.1 | Hardcoded in `setup-fluxcd-gitops-kind-multinode.sh` step 4 |
-| kube-prometheus-stack | 86.2.2 | `prometheus/helmrelease.yaml` |
-| Loki | 7.0.0 | `loki/helmrelease.yaml` |
-| Grafana | 10.5.15 | `grafana/helmrelease.yaml` |
-| Grafana Tempo | 1.24.4 | `tempo/helmrelease.yaml` |
-| OpenTelemetry Collector | 0.158.1 | `opentelemetry/helmrelease.yaml` |
-| Kyverno | 3.8.1 | `kyverno.yaml` |
-| Kubescape | 1.40.2 | `kubescape.yaml` |
-| Falco | 9.1.0 | `falco.yaml` |
-| Tetragon | 1.7.0 | `tetragon.yaml` |
-| Trivy Operator | 0.33.1 | `trivy.yaml` |
+| Component | Chart Version | App Version | Constrained By |
+|---|---|---|---|
+| Kubernetes (KinD node) | — | v1.36.1 | `K8S_VER` in `versions.env` |
+| Flux CD | — | v2.8.8 | `flux bootstrap github` — update by re-running bootstrap with a newer CLI |
+| Cilium | 1.19.4 | v1.19.5 | `cilium.yaml` chart constraint (`1.19.x`) + `versions.env` |
+| Istio | 1.30.1 | 1.30.1 | `istio.yaml` chart constraint (`1.30.x`) + `versions.env` |
+| Envoy Gateway | 1.8.1 | v1.8.1 | `envoy-gateway.yaml` chart constraint (`1.8.x`) + `versions.env` |
+| Contour | 0.6.0 | 1.33.5 | `contour.yaml` chart constraint (`0.x`); `CONTOUR_VERSION` in `versions.env` (informational — Contour is installed by Flux, not the bootstrap script) |
+| Gateway API CRDs | — | v1.2.1 | Hardcoded in `setup-fluxcd-gitops-kind-multinode.sh` step 4 |
+| kube-prometheus-stack | 86.2.3 | v0.91.0 (operator) | `prometheus/helmrelease.yaml` chart constraint (`86.x`) |
+| Loki | 7.0.0 | 3.6.7 | `loki/helmrelease.yaml` chart constraint (`7.x`) |
+| Grafana | 10.5.15 | 12.3.1 | `grafana/helmrelease.yaml` chart constraint (`10.x`) |
+| Grafana Tempo | 1.24.4 | 2.9.0 | `tempo/helmrelease.yaml` chart constraint (`1.x`) |
+| OpenTelemetry Collector | 0.158.1 | 0.153.0 | `opentelemetry/helmrelease.yaml` chart constraint (`0.158.x`) |
+| Kyverno | 3.8.1 | v1.18.1 | `kyverno.yaml` chart constraint (`3.x`) |
+| Kubescape | 1.40.2 | v4.0.8 | `kubescape.yaml` chart constraint (`1.40.x`) |
+| Falco | 9.1.0 | 0.44.1 | `falco.yaml` chart constraint (`9.x`) |
+| Tetragon | 1.7.0 | 1.7.0 | `tetragon.yaml` chart constraint (`1.7.x`) |
+| Trivy Operator | 0.33.1 | 0.31.1 | `trivy.yaml` chart constraint (`0.x`) |
 
 All version pins shared between the Makefile and setup script are sourced from `versions.env` at the repository root. Updating them there propagates the change to both consumers.
 
@@ -499,31 +503,64 @@ spec:
 
 Then add a hostname-specific `server {}` block to the nginx ConfigMap in `apps/overlays/kind/istio/nodeport-proxy.yaml` — placed before the `listen 8888 default_server` catch-all block — that proxies the new hostname to `contour-contour-envoy.contour.svc.cluster.local:80`. See the existing `httpbin-contour.local` block as the template.
 
+### Network Policy Coverage
+
+Every namespace in this cluster uses a **default-deny** model. A `NetworkPolicy` with `policyTypes: [Ingress, Egress]` and an empty pod selector is applied first, blocking all traffic. Subsequent policies open only the paths each workload legitimately needs. The Cilium CNI enforces all policies using eBPF kernel programs rather than iptables rules.
+
+| Namespace | Status | Source File |
+|---|---|---|
+| `envoy-gateway-system` | Locked down | `infrastructure/controllers/envoy-gateway.yaml` |
+| `envoy-ingress` | Locked down | `infrastructure/controllers/envoy-gateway.yaml` |
+| `falco` | Locked down | `infrastructure/controllers/falco.yaml` |
+| `kubescape` | Locked down | `infrastructure/controllers/kubescape.yaml` |
+| `trivy-system` | Locked down | `infrastructure/controllers/trivy.yaml` |
+| `cert-manager` | Locked down | `infrastructure/controllers/cert-manager.yaml` |
+| `kyverno` | Locked down | `infrastructure/controllers/kyverno.yaml` |
+| `istio-system` | Locked down | `infrastructure/controllers/istio.yaml` |
+| `metrics-server` | Locked down | `infrastructure/controllers/metrics-server.yaml` |
+| `tetragon` | Locked down | `infrastructure/controllers/tetragon.yaml` |
+| `openebs` | Locked down | `infrastructure/controllers/openebs.yaml` |
+| `contour` | Locked down | `infrastructure/controllers/contour.yaml` |
+| `observability` | Locked down | `apps/base/prometheus/netpol.yaml`, `apps/base/opentelemetry/netpol.yaml` |
+| `demo` | Locked down | `apps/base/demo/netpol.yaml` |
+| `iperf3` | Locked down | `apps/base/iperf3/networkpolicies.yaml` |
+| `boinc` | Locked down | `apps/base/boinc/netpol.yaml` |
+| `flux-system` | Partially open | Managed by Flux bootstrap (`gotk-components.yaml`); unrestricted egress by design |
+
+`flux-system` NetworkPolicies are installed by the Flux bootstrapper and are not controlled by this repository. The egress is intentionally unrestricted so Flux controllers can reach any Git host or OCI registry. The scrape ingress policy permits port 8080 from any namespace — a known limitation of the upstream default.
+
 ### Adding CiliumNetworkPolicies
 
-`apps/overlays/kind/cilium/` is a placeholder for `CiliumNetworkPolicy` resources. The CNI itself is managed in `infrastructure/controllers/cilium.yaml`; this overlay is where network segmentation policy is defined. To activate:
+`CiliumNetworkPolicy` extends standard Kubernetes NetworkPolicy with capabilities that standard policies cannot express — specifically, matching traffic from the Kubernetes API server or from remote cluster nodes, both of which originate outside the pod CIDR range. One `CiliumNetworkPolicy` is already deployed in `kubescape` to permit the aggregated API server traffic on port 8443.
+
+For new `CiliumNetworkPolicy` resources that belong in the apps layer, use the placeholder overlay at `apps/overlays/kind/cilium/`:
 
 1. Add `CiliumNetworkPolicy` manifests under `apps/overlays/kind/cilium/`.
-2. Create `apps/overlays/kind/cilium/kustomization.yaml` listing them.
+2. Update `apps/overlays/kind/cilium/kustomization.yaml` to list them.
 3. Uncomment `- cilium/` in `apps/overlays/kind/kustomization.yaml`.
 
-Example deny-all default with explicit allow:
+Example — deny all traffic to a namespace, then allow one caller:
 
 ```yaml
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: deny-all
-  namespace: demo
+  name: allow-apiserver-webhook
+  namespace: my-namespace
 spec:
-  endpointSelector: {}
+  endpointSelector:
+    matchLabels:
+      app: my-webhook
   ingress:
-    - fromEndpoints:
-        - matchLabels:
-            app: allowed-caller
+    - fromEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "9443"
+              protocol: TCP
 ```
 
-Without any `CiliumNetworkPolicy` resources, all pod-to-pod traffic is permitted (Cilium's default). Add policies incrementally to harden namespaces as required.
+Use `fromEntities: kube-apiserver` when the API server must call a webhook (Kyverno, cert-manager, Istio injection). Use `fromEntities: remote-node` when cross-node traffic originates from a host-network pod on another node.
 
 ## Monitoring
 
