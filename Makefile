@@ -41,7 +41,7 @@ BOOTSTRAP_IMAGES := \
 .PHONY: help \
         bootstrap destroy branch \
         pull-images load-images cache-running \
-        check-tools status watch validate \
+        check-tools status watch validate check-crd-count \
         sops-setup sops-load-key \
         test-policies test-falco test-cluster test-kubescape \
         test-iperf3 test-iperf3-circuit-breaker test-iperf3-overflow
@@ -168,6 +168,16 @@ sops-load-key: ## Load Age private key into cluster as sops-age secret (run afte
 
 status: ## Show Flux reconciliation state across all namespaces
 	flux get all -A
+
+check-crd-count: ## Warn if installed CRD count approaches the etcd slow-list threshold (>150)
+	@count=$$(kubectl get crds --no-headers 2>/dev/null | wc -l | tr -d ' '); \
+	printf "Installed CRDs: %s\n" "$$count"; \
+	if [ "$$count" -gt 150 ]; then \
+	  printf "WARNING: CRD count %s exceeds 150.\n" "$$count"; \
+	  printf "High CRD counts slow etcd LIST responses and cause watch-mark-send-over-slow-network\n"; \
+	  printf "warnings. Review Helm chart CRD installations; consider disabling unused capabilities.\n"; \
+	  exit 1; \
+	fi
 
 watch: ## Watch Flux reconcile every 6 s (Ctrl-C to stop)
 	watch -n 6 "flux get all -A"
