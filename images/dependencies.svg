@@ -205,8 +205,8 @@
   <text x="155" y="635" text-anchor="middle" font-size="8.5" fill="#475569">nginx nodeport proxy</text>
 
   <rect x="253" y="604" width="160" height="36" rx="8" fill="white" stroke="#4F46E5" stroke-width="1.5"/>
-  <text x="333" y="622" text-anchor="middle" font-size="10" font-weight="700" fill="#0F172A">envoy-gateway overlay</text>
-  <text x="333" y="635" text-anchor="middle" font-size="8.5" fill="#475569">proxy service + TCPRoute</text>
+  <text x="333" y="622" text-anchor="middle" font-size="10" font-weight="700" fill="#0F172A">contour HTTPProxy CRs</text>
+  <text x="333" y="635" text-anchor="middle" font-size="8.5" fill="#475569">grafana · prom · httpbin</text>
 
   <rect x="431" y="604" width="160" height="36" rx="8" fill="white" stroke="#4F46E5" stroke-width="1.5"/>
   <text x="511" y="622" text-anchor="middle" font-size="10" font-weight="700" fill="#0F172A">kyverno overlay</text>

@@ -91,7 +91,7 @@
   <line x1="230" y1="437" x2="258" y2="437" stroke="#C2410C" stroke-width="1.5" opacity="0.6" marker-end="url(#arr-green)"/>
   <!-- istio-base (y=475) -->
   <line x1="230" y1="475" x2="258" y2="475" stroke="#C2410C" stroke-width="1.5" opacity="0.6" marker-end="url(#arr-green)"/>
-  <!-- Envoy Gateway (y=513) -->
+  <!-- Contour (y=513) -->
   <line x1="230" y1="513" x2="258" y2="513" stroke="#C2410C" stroke-width="1.5" opacity="0.6" marker-end="url(#arr-green)"/>
 
   <!-- Dependent HelmRelease boxes (x=262 start) -->
@@ -122,10 +122,10 @@
   <text x="471" y="472" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#15803D">istiod HR</text>
   <text x="471" y="486" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">control plane</text>
 
-  <!-- Envoy Gateway -->
+  <!-- Contour -->
   <rect x="262" y="495" width="145" height="36" rx="6" fill="white" stroke="#15803D" stroke-width="1.5"/>
-  <text x="334" y="510" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#15803D">Envoy Gateway HR</text>
-  <text x="334" y="524" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">GatewayClass: eg</text>
+  <text x="334" y="510" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#15803D">Contour HR</text>
+  <text x="334" y="524" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">HTTPProxy CRs · Envoy xDS</text>
 
   <!-- Tetragon + Kyverno + Falco + Kubescape on the right column -->
   <!-- Kyverno -->
@@ -225,16 +225,16 @@
   <text x="651" y="693" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#6D28D9">demo · iperf3 workloads</text>
   <text x="651" y="708" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">httpbin + load-generator</text>
   <text x="651" y="722" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">Istio sidecar · STRICT mTLS</text>
-  <text x="651" y="736" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">iperf3 server · TCPRoute</text>
-  <text x="651" y="750" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">BackendTrafficPolicy circuit-breaker</text>
+  <text x="651" y="736" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">iperf3 server · nginx stream{}</text>
+  <text x="651" y="750" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">direct TCP to port 32111</text>
 
   <!-- Mesh + Ingress config CRs -->
   <rect x="735" y="675" width="128" height="90" rx="6" fill="white" stroke="#EA580C" stroke-width="1.5"/>
   <text x="799" y="693" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#C2410C">Mesh + Ingress CRs</text>
   <text x="799" y="708" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">PeerAuthentication</text>
   <text x="799" y="722" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">Telemetry (OTLP traces)</text>
-  <text x="799" y="736" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">Gateway + EnvoyProxy</text>
-  <text x="799" y="750" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">HTTPRoutes (grafana · prom)</text>
+  <text x="799" y="736" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">HTTPProxy CRs</text>
+  <text x="799" y="750" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">(grafana · prom · httpbin)</text>
 
   <!-- Down arrow to steady state -->
   <line x1="450" y1="790" x2="450" y2="808" stroke="#6B7280" stroke-width="1.5" marker-end="url(#arr)"/>

@@ -148,7 +148,7 @@
   <!-- ══════════════════════════════════════════════════
        SHARED CLUSTER NAMESPACES (bottom of cluster box)
   ══════════════════════════════════════════════════ -->
-  <!-- kube-system / envoy-gateway namespace boxes -->
+  <!-- kube-system / envoy-ingress namespace boxes -->
   <rect x="34" y="490" width="290" height="70" rx="8" fill="#FFF7ED" stroke="#C2410C" stroke-width="1.25"/>
   <text x="179" y="507" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="700" fill="#C2410C">kube-system</text>
   <line x1="42" y1="513" x2="316" y2="513" stroke="#C2410C" stroke-width="0.75" opacity="0.35"/>
@@ -157,13 +157,12 @@
   <text x="179" y="554" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8" font-style="italic">Hubble UI: disabled (saves ~200 Mi RAM)</text>
 
   <!-- envoy-ingress namespace -->
-  <rect x="338" y="490" width="290" height="84" rx="8" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.25"/>
+  <rect x="338" y="490" width="290" height="70" rx="8" fill="#FFF7ED" stroke="#EA580C" stroke-width="1.25"/>
   <text x="483" y="507" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="700" fill="#C2410C">envoy-ingress · iperf3 namespaces</text>
   <line x1="346" y1="513" x2="620" y2="513" stroke="#EA580C" stroke-width="0.75" opacity="0.35"/>
-  <text x="483" y="528" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">Envoy Gateway proxy Deployment</text>
-  <text x="483" y="542" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">NodePort Service :30080 (→ localhost:8080)</text>
-  <text x="483" y="556" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">HTTPRoute: grafana.local · prometheus.local</text>
-  <text x="483" y="570" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#C2410C">TCPRoute: iperf3 :32111 → iperf3 ns (circuit-breaker)</text>
+  <text x="483" y="528" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">nginx nodeport-proxy DaemonSet (hostNetwork: true)</text>
+  <text x="483" y="542" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">port 8888 → Contour Envoy DaemonSet :80 (HTTP)</text>
+  <text x="483" y="556" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">port 9111 → iperf3 svc :32111 (TCP stream)</text>
 
   <!-- flux-system + cert-manager etc -->
   <rect x="642" y="490" width="424" height="70" rx="8" fill="#EEF2FF" stroke="#4F46E5" stroke-width="1.25"/>
@@ -220,9 +219,9 @@
 
   <!-- Ingress path label -->
   <text x="34" y="592" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="700" fill="#EA580C">HTTP ingress path:</text>
-  <text x="34" y="606" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">localhost:8080 → KinD containerPort:8888 → nginx (hostNetwork) → envoy-proxy ClusterIP → HTTPRoute → Service</text>
+  <text x="34" y="606" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">localhost:8080 → KinD containerPort:8888 → nginx (hostNetwork) :8888 → Contour Envoy DaemonSet :80 → HTTPProxy → Service</text>
   <text x="34" y="619" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="700" fill="#C2410C">TCP ingress path (iperf3):</text>
-  <text x="34" y="633" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">localhost:32111 → KinD containerPort:9111 → nginx stream block → envoy-proxy :32111 → TCPRoute → iperf3 Service</text>
+  <text x="34" y="633" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">localhost:32111 → KinD containerPort:9111 → nginx stream{} :9111 → iperf3 Service :32111 (direct TCP, no circuit-breaker)</text>
 
   <!-- OTLP trace path -->
   <text x="34" y="648" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="700" fill="#0D9488">OTLP trace path:</text>

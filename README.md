@@ -188,8 +188,8 @@ The "Chart Version" column is the Helm chart release version. The "App Version" 
 | Component | Chart / Source | Chart Version | App Version | Namespace | Notes |
 |---|---|---|---|---|---|
 | Flux CD | flux bootstrap | — | v2.8.8 | flux-system | Managed in `clusters/kind/flux-system/gotk-components.yaml` — do not edit manually |
-| Cilium CNI | cilium/cilium | 1.19.4 | v1.19.5 | kube-system | |
-| Hubble Relay | (bundled with Cilium) | 1.19.4 | v1.19.5 | kube-system | |
+| Cilium CNI | cilium/cilium | 1.19.5 | v1.19.5 | kube-system | |
+| Hubble Relay | (bundled with Cilium) | 1.19.5 | v1.19.5 | kube-system | |
 | Hubble UI | (bundled with Cilium) | — | 0.13.1 | kube-system | Disabled by default; enable via `hubble.ui.enabled: true` in `cilium.yaml` |
 | cert-manager | cert-manager/cert-manager | v1.20.2 | v1.20.2 | cert-manager | |
 | OpenEBS localpv | openebs/openebs | 4.5.0 | 4.5.0 | openebs | |
@@ -203,7 +203,7 @@ The "Chart Version" column is the Helm chart release version. The "App Version" 
 | Loki | grafana/loki | 7.0.0 | 3.6.7 | observability | |
 | Promtail | grafana/promtail | 6.17.1 | 3.5.1 | observability | |
 | Grafana Tempo | grafana/tempo | 1.24.4 | 2.9.0 | observability | Single-binary mode; trace backend for the OTel pipeline |
-| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.158.1 | 0.153.0 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
+| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.158.2 | 0.153.0 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
 | Tetragon | cilium/tetragon | 1.7.0 | 1.7.0 | tetragon | |
 | Kyverno | kyverno/kyverno | 3.8.1 | v1.18.1 | kyverno | |
 | Kubescape | kubescape/kubescape-operator | 1.40.2 | v4.0.8 | kubescape | NSA + MITRE continuous scan; vulnerability scan disabled for KinD |
@@ -237,14 +237,14 @@ The versions below were validated together. When upgrading a component, verify c
 |---|---|---|---|
 | Kubernetes (KinD node) | — | v1.36.1 | `K8S_VER` in `versions.env` |
 | Flux CD | — | v2.8.8 | `flux bootstrap github` — update by re-running bootstrap with a newer CLI |
-| Cilium | 1.19.4 | v1.19.5 | `cilium.yaml` chart constraint (`1.19.x`) + `versions.env` |
+| Cilium | 1.19.5 | v1.19.5 | `cilium.yaml` chart constraint (`1.19.x`) + `versions.env` |
 | Istio | 1.30.1 | 1.30.1 | `istio.yaml` chart constraint (`1.30.x`) + `versions.env` |
 | Contour | 0.6.0 | 1.33.5 | `contour.yaml` chart constraint (`0.x`); `CONTOUR_VERSION` in `versions.env` (informational — Contour is installed by Flux, not the bootstrap script) |
 | kube-prometheus-stack | 86.2.3 | v0.91.0 (operator) | `prometheus/helmrelease.yaml` chart constraint (`86.x`) |
 | Loki | 7.0.0 | 3.6.7 | `loki/helmrelease.yaml` chart constraint (`7.x`) |
 | Grafana | 10.5.15 | 12.3.1 | `grafana/helmrelease.yaml` chart constraint (`10.x`) |
 | Grafana Tempo | 1.24.4 | 2.9.0 | `tempo/helmrelease.yaml` chart constraint (`1.x`) |
-| OpenTelemetry Collector | 0.158.1 | 0.153.0 | `opentelemetry/helmrelease.yaml` chart constraint (`0.158.x`) |
+| OpenTelemetry Collector | 0.158.2 | 0.153.0 | `opentelemetry/helmrelease.yaml` chart constraint (`0.158.x`) |
 | Kyverno | 3.8.1 | v1.18.1 | `kyverno.yaml` chart constraint (`3.x`) |
 | Kubescape | 1.40.2 | v4.0.8 | `kubescape.yaml` chart constraint (`1.40.x`) |
 | Falco | 9.1.0 | 0.44.1 | `falco.yaml` chart constraint (`9.x`) |

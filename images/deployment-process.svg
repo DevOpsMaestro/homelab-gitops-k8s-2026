@@ -67,15 +67,15 @@
   <line x1="600" y1="386" x2="600" y2="392" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
 
   <!-- ══════════════════════════════════════════════════════════════
-       PHASE 3 · GATEWAY API CRDs  (y=394, h=106)
+       PHASE 3 · ISTIO SIDECAR IMAGE PRELOAD  (y=394, h=106)
        ══════════════════════════════════════════════════════════════ -->
   <rect x="10" y="394" width="1180" height="106" rx="10" fill="#ECFEFF" stroke="#0891B2" stroke-width="1.5"/>
-  <text x="28" y="412" font-size="10" font-weight="700" letter-spacing="1.2" fill="#0891B2">PHASE 3 · GATEWAY API CRDs</text>
+  <text x="28" y="412" font-size="10" font-weight="700" letter-spacing="1.2" fill="#0891B2">PHASE 3 · ISTIO SIDECAR IMAGE PRELOAD</text>
 
   <rect x="20" y="420" width="1160" height="68" rx="8" fill="white" stroke="#0891B2" stroke-width="1.5"/>
-  <text x="600" y="438" text-anchor="middle" font-size="12" font-weight="700" fill="#0F172A">kubectl apply — Gateway API standard-install.yaml  v1.2.1</text>
-  <text x="600" y="453" text-anchor="middle" font-size="9" fill="#475569">Installs CRDs: Gateway  ·  HTTPRoute  ·  GatewayClass  ·  TCPRoute  ·  TLSRoute  ·  ReferenceGrant</text>
-  <text x="600" y="468" text-anchor="middle" font-size="9" fill="#475569">kubectl wait --for=condition=Established (60s)  ·  Required before Envoy Gateway HelmRelease can reconcile</text>
+  <text x="600" y="438" text-anchor="middle" font-size="12" font-weight="700" fill="#0F172A">Pre-pull &amp; load Istio proxy images into all KinD nodes</text>
+  <text x="600" y="453" text-anchor="middle" font-size="9" fill="#475569">docker.io/istio/proxyv2:${ISTIO_VERSION}  ·  docker save | ctr import → all 3 nodes in parallel  ·  --platform linux/arm64</text>
+  <text x="600" y="468" text-anchor="middle" font-size="9" fill="#475569">Prevents sidecar CrashLoopBackOff on first Flux reconcile  ·  Bundled with Cilium image preload in Step 2 of the bootstrap script</text>
 
   <!-- connector -->
   <line x1="600" y1="500" x2="600" y2="506" stroke="#94A3B8" stroke-width="1.5" marker-end="url(#arr)"/>
@@ -130,7 +130,7 @@
   <rect x="20"  y="772" width="374" height="62" rx="8" fill="white" stroke="#15803D" stroke-width="1.5"/>
   <text x="207" y="790" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">HelmRepositories registered</text>
   <text x="207" y="805" text-anchor="middle" font-size="9" fill="#475569">13 chart sources added to flux-system</text>
-  <text x="207" y="820" text-anchor="middle" font-size="9" fill="#475569">Cilium · Cert-Manager · Istio · Envoy GW · Prometheus</text>
+  <text x="207" y="820" text-anchor="middle" font-size="9" fill="#475569">Cilium · Cert-Manager · Istio · Contour · Prometheus</text>
 
   <rect x="404" y="772" width="374" height="62" rx="8" fill="white" stroke="#15803D" stroke-width="1.5"/>
   <text x="591" y="790" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Cilium HelmRelease adopted</text>
@@ -168,11 +168,11 @@
   <!-- right group: parallel installs -->
   <text x="348" y="860" font-size="9" font-weight="700" fill="#15803D">Parallel installs  (all dependsOn: Cilium)</text>
 
-  <!-- row A: envoy-gateway, tetragon, kyverno, kubescape -->
+  <!-- row A: contour, tetragon, kyverno, kubescape -->
   <!-- 4 boxes in x=348 to x=1172 = 824px. Each=(824-3*10)/4=198.5≈198, gap=10 -->
   <!-- edges: 348, 556, 764, 972  centers: 447, 655, 863, 1071 -->
   <rect x="348" y="866" width="198" height="26" rx="5" fill="#F0FDF4" stroke="#15803D" stroke-width="1"/>
-  <text x="447" y="883" text-anchor="middle" font-size="9" font-weight="700" fill="#0F172A">envoy-gateway</text>
+  <text x="447" y="883" text-anchor="middle" font-size="9" font-weight="700" fill="#0F172A">contour</text>
 
   <rect x="556" y="866" width="198" height="26" rx="5" fill="#F0FDF4" stroke="#15803D" stroke-width="1"/>
   <text x="655" y="883" text-anchor="middle" font-size="9" font-weight="700" fill="#0F172A">tetragon</text>
@@ -214,7 +214,7 @@
   <rect x="610" y="992" width="570" height="78" rx="8" fill="white" stroke="#7C3AED" stroke-width="1.5"/>
   <text x="895" y="1011" text-anchor="middle" font-size="11" font-weight="700" fill="#0F172A">Workloads &amp; policies</text>
   <text x="895" y="1026" text-anchor="middle" font-size="9" fill="#475569">Istio overlay + nginx nodeport-proxy DaemonSet</text>
-  <text x="895" y="1041" text-anchor="middle" font-size="9" fill="#475569">Envoy Gateway overlay  (Gateway, TCPRoute, BackendTrafficPolicy)</text>
+  <text x="895" y="1041" text-anchor="middle" font-size="9" fill="#475569">Contour HTTPProxy CRs  (grafana · prometheus · httpbin)</text>
   <text x="895" y="1056" text-anchor="middle" font-size="9" fill="#475569">Kyverno ClusterPolicies  ·  demo (httpbin)  ·  BOINC DaemonSet</text>
 
   <!-- connector -->
