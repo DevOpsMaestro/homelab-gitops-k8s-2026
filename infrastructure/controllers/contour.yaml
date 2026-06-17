@@ -9,15 +9,11 @@ metadata:
   labels:
     istio-injection: disabled
 ---
-# Contour is a Kubernetes-native control plane for Envoy. It watches the
-# Kubernetes API for Ingress and HTTPProxy resources, translates them into
-# xDS configuration, and streams that configuration to Envoy via gRPC on
-# port 8001. The Envoy DaemonSet is the data plane: it receives xDS from
-# Contour and routes live traffic.
-#
-# This creates a second, independent ingress stack alongside Envoy Gateway:
-#   Envoy Gateway controller → xDS → Envoy Gateway proxy pods  (Gateway API)
-#   Contour controller       → xDS → Contour Envoy DaemonSet   (HTTPProxy CRD)
+# Contour is the sole HTTP ingress controller for this cluster. It watches
+# the Kubernetes API for HTTPProxy resources, translates them into xDS
+# configuration, and streams that configuration to its Envoy DaemonSet via
+# gRPC on port 8001. The Envoy DaemonSet is the data plane: it receives xDS
+# from Contour and routes live traffic to backend Services.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -166,7 +162,7 @@ spec:
         - port: 8080
 ---
 # Contour Envoy pods route HTTP traffic to backend services.
-# Port 80 is the pod-level port for the httpbin container in the demo namespace.
+# Pod-level ports: httpbin listens on 80, Grafana on 3000, Prometheus on 9090.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -185,3 +181,10 @@ spec:
               kubernetes.io/metadata.name: demo
       ports:
         - port: 80
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+      ports:
+        - port: 3000   # Grafana
+        - port: 9090   # Prometheus

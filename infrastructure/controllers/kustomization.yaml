@@ -6,7 +6,7 @@ resources:
   - cert-manager.yaml
   - openebs.yaml
   - istio.yaml
-  - envoy-gateway.yaml
+  - envoy-ingress.yaml
   - tetragon.yaml
   - kyverno.yaml
   - kubescape.yaml

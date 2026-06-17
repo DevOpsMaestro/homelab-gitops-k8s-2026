@@ -45,7 +45,6 @@ jobs:
               apps/base/demo \
               apps/base/notifications \
               apps/base/istio \
-              apps/base/envoy-gateway \
               apps/base/boinc; do
             echo "==> kustomize build $dir"
             kustomize build "$dir"

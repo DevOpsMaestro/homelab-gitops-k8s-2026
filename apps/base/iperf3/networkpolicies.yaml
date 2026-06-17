@@ -30,12 +30,14 @@ spec:
         - port: 53
           protocol: TCP
 ---
-# The Envoy proxy pods in envoy-gateway-system forward TCP connections
-# from the Gateway's tcp-iperf3 listener to this pod on port 32111.
+# nginx (envoy-ingress namespace, hostNetwork: true) forwards raw TCP connections
+# to this pod on port 32111. Because nginx uses the node's network interface,
+# its source IP is the node IP — namespace-selector matching does not apply.
+# Allow all sources on this port (same pattern as contour/allow-envoy-http-ingress).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-envoy-ingress
+  name: allow-nginx-ingress
   namespace: iperf3
 spec:
   podSelector:
@@ -44,10 +46,6 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: envoy-gateway-system
-      ports:
+    - ports:
         - port: 32111
           protocol: TCP

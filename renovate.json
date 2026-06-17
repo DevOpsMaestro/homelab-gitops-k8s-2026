@@ -45,16 +45,6 @@
       "registryUrlTemplate": "https://istio-release.storage.googleapis.com/charts"
     },
     {
-      "description": "Track Envoy Gateway version in versions.env",
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^versions\\.env$/"
-      ],
-      "matchStrings": ["ENVOY_GATEWAY_VERSION=v?(?<currentValue>[^\\n]+)"],
-      "depNameTemplate": "envoyproxy/gateway",
-      "datasourceTemplate": "github-releases"
-    },
-    {
       "description": "Track Kubernetes node version in versions.env via kindest/node Docker image. Using the Docker datasource (not kubernetes/kubernetes github-releases) ensures Renovate only proposes versions that KinD has actually published as node images — Kubernetes tags a release before KinD builds the image, which caused v1.36.2 to be proposed before kindest/node:v1.36.2 existed.",
       "customType": "regex",
       "managerFilePatterns": [

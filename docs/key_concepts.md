@@ -14,7 +14,7 @@ The smallest deployable unit. A Pod consists of one or more containers that shar
 
 ### Deployment
 
-Manages a set of identical, stateless Pods. Handles rolling updates, rollbacks, and replica count. A Deployment is the appropriate workload type when every Pod is interchangeable. (Grafana, Prometheus, Envoy Gateway, and most services in this cluster are Deployments.)
+Manages a set of identical, stateless Pods. Handles rolling updates, rollbacks, and replica count. A Deployment is the appropriate workload type when every Pod is interchangeable. (Grafana, Prometheus, Contour, and most services in this cluster are Deployments.)
 
 ### DaemonSet
 
@@ -134,50 +134,24 @@ This provides:
 
 **mTLS explained:** Standard TLS authenticates only the server (as with HTTPS in a browser). Mutual TLS also authenticates the caller. In Istio's mesh, every Pod carries a short-lived certificate issued by istiod. When Pod A calls Pod B, both verify each other's certificate. A compromised Pod cannot impersonate another service because it cannot forge that certificate.
 
-In this cluster, Istio is **mesh only** — it handles mTLS between services but does not handle traffic entering from outside the cluster. That responsibility belongs to Envoy Gateway.
+In this cluster, Istio is **mesh only** — it handles mTLS between services but does not handle traffic entering from outside the cluster. That responsibility belongs to Contour.
 
 ---
 
-## Ingress — Envoy Gateway
+## Ingress — Contour
 
-**Ingress** is the path that gets external HTTP traffic into the cluster. This cluster uses the Kubernetes **Gateway API** (the modern replacement for the older `Ingress` resource).
+**Ingress** is the path that gets external HTTP traffic into the cluster.
 
-**Envoy Gateway** implements Gateway API. The operator defines:
+**Contour** is the sole HTTP ingress controller. Two roles make up the Contour stack:
 
-- A `Gateway` CR — "listen for HTTP on port 80"
-- An `HTTPRoute` CR — "route requests with `Host: grafana.local` to the Grafana Service"
+- **Control plane (Contour controller)** — watches `HTTPProxy` CRs, translates them into Envoy xDS configuration, and streams that configuration to the data plane over gRPC on port 8001.
+- **Data plane (Contour Envoy DaemonSet)** — receives xDS configuration from the controller and handles live HTTP traffic. These pods run in the `contour` namespace.
 
-Envoy Gateway auto-provisions an Envoy proxy Deployment and NodePort Service. On KinD on macOS, an nginx DaemonSet handles the host-to-cluster port mapping (see the README for the full explanation).
+The operator defines an `HTTPProxy` CR — "route requests with `Host: grafana.local` to the Grafana Service" — and Contour programs its Envoy DaemonSet to match. On KinD on macOS, an nginx DaemonSet handles the host-to-cluster port mapping. The nginx `nodeport-proxy` receives all external HTTP traffic on port 8888 and forwards it to the Contour Envoy DaemonSet (`contour-contour-envoy.contour.svc.cluster.local:80`). Contour then routes by the `Host` header to the correct backend.
 
-To expose a new service, create an `HTTPRoute` in its namespace — see the README for the template.
+Istio sidecar injection is disabled in the `contour` namespace because Contour manages the Envoy DaemonSet's lifecycle directly through xDS; an Istio sidecar would conflict with that control loop.
 
----
-
-## Second Ingress Stack — Contour
-
-**Contour** is a second HTTP ingress controller that runs alongside Envoy Gateway. It uses a different API — the `HTTPProxy` custom resource (`projectcontour.io/v1`) instead of Gateway API — and manages its own separate Envoy DaemonSet.
-
-Two roles make up the Contour stack:
-
-- **Control plane (Contour controller)** — watches `HTTPProxy` and `Ingress` resources, translates them into Envoy xDS configuration, and streams that configuration to the data plane over gRPC on port 8001.
-- **Data plane (Contour Envoy DaemonSet)** — receives the xDS configuration pushed by the controller and handles actual HTTP traffic. These pods run in the `contour` namespace and are separate from the Envoy pods auto-provisioned by Envoy Gateway.
-
-**Contour vs. Envoy Gateway:**
-
-| Aspect | Envoy Gateway | Contour |
-|---|---|---|
-| API | Gateway API (`HTTPRoute`) | `HTTPProxy` CRD (`projectcontour.io/v1`) |
-| Controller namespace | `envoy-gateway-system` | `contour` |
-| Data-plane namespace | `envoy-gateway-system` | `contour` |
-| Data-plane provisioning | Auto-provisioned when the `Gateway` CR is created | Bundled DaemonSet installed by the Helm chart |
-
-Both stacks use Envoy as the underlying proxy. The difference lies in which controller programs it and which Kubernetes API an operator uses to define routes.
-
-**How routing works:** The nginx `nodeport-proxy` receives all external traffic on port 8888 and routes it by the HTTP `Host` header. Requests for `httpbin-contour.local` are forwarded to the Contour Envoy DaemonSet; all other hostnames are forwarded to Envoy Gateway's Envoy proxy. Each hostname reaches the correct ingress stack without any port-level configuration change.
-
-**In this cluster,** Contour routes `httpbin-contour.local` to the `httpbin` service in the `demo` namespace via an `HTTPProxy` resource defined in `apps/base/contour/httproxy.yaml`. Istio sidecar injection is disabled in the `contour` namespace because Contour manages the Envoy DaemonSet's lifecycle directly through xDS; an Istio sidecar would conflict with that control loop.
-
-To expose a service through Contour, create an `HTTPProxy` in its namespace — see the README for the template.
+To expose a service, create an `HTTPProxy` in its namespace — see the README for the template.
 
 ---
 
@@ -369,11 +343,11 @@ Grafana comes pre-loaded with 16 dashboards covering Cilium, Hubble, Istio, Flux
 |-----------|------------------|--------|
 | SOPS + Age | X25519 key encapsulation | No PQC support yet |
 | Istio mTLS workload certs | ECDSA P-256 | No PQC support yet |
-| Envoy Gateway | None (HTTP only, no TLS) | N/A |
+| Contour + Envoy | None (HTTP only in this cluster, no TLS) | N/A |
 
 **Important note:** Symmetric encryption (AES-256, ChaCha20-Poly1305) is already quantum-safe — Grover's algorithm only halves effective key strength, leaving 256-bit keys with approximately 128 bits of security, which is considered adequate. The threat is confined to asymmetric key exchange and digital signatures.
 
-No component in this cluster can be switched to a NIST PQC algorithm today without loss of compatibility. Every relevant tool — Age, Istio, cert-manager, and Envoy — lacks stable PQC support. The `Post Quantum Computing` GitHub Actions workflow (`.github/workflows/pqc-watch.yaml`) runs weekly and creates a dashboard issue in this repository when any of the five tracked tools ships PQC support.
+No component in this cluster can be switched to a NIST PQC algorithm today without loss of compatibility. Every relevant tool — Age, Istio, and cert-manager — lacks stable PQC support. The `Post Quantum Computing` GitHub Actions workflow (`.github/workflows/pqc-watch.yaml`) runs weekly and creates a dashboard issue in this repository when any of the five tracked tools ships PQC support.
 
 See [docs/post-quantum-readiness.md](post-quantum-readiness.md) for the complete per-component inventory, algorithm mapping, and upgrade roadmap.
 
@@ -392,7 +366,7 @@ Without this traffic, the Istio Grafana dashboards (Mesh, Service, Workload) dis
 
 ## Network Bandwidth Testing — iperf3
 
-**iperf3** is a standard network performance measurement tool. A client connects to an iperf3 server and saturates the connection with TCP or UDP traffic; the tool reports throughput, jitter, and packet loss. This cluster runs an iperf3 server as a Kubernetes `Deployment` in the `iperf3` namespace, reachable through Envoy Gateway.
+**iperf3** is a standard network performance measurement tool. A client connects to an iperf3 server and saturates the connection with TCP or UDP traffic; the tool reports throughput, jitter, and packet loss. This cluster runs an iperf3 server as a Kubernetes `Deployment` in the `iperf3` namespace, reachable from the macOS host via the nginx nodeport-proxy stream layer.
 
 **Why iperf3 is included:**
 
@@ -400,31 +374,19 @@ The iperf3 server exercises the full TCP ingress path from the macOS host:
 
 ```
 Host iperf3 client (localhost:32111)
-  └─► KinD extraPortMapping → nginx nodeport-proxy (port 8888 range)
-        └─► Envoy Gateway proxy (TCPRoute on tcp-iperf3 listener)
-              └─► iperf3 Service (port 9111)
-                    └─► iperf3 Pod
+  └─► KinD extraPortMapping → nginx nodeport-proxy stream{} (port 9111)
+        └─► iperf3 ClusterIP Service (port 32111)
+              └─► iperf3 Pod
 ```
 
-This path tests every layer of the cluster's TCP routing configuration in a single command.
-
-**Traffic shaping — BackendTrafficPolicy:**
-
-A `BackendTrafficPolicy` resource applied to the Envoy Gateway's `iperf3` route enforces a circuit-breaker:
-
-- `maxConnections: 10` — Envoy rejects TCP connections above this limit
-- `maxPendingRequests: 5` — queued connections above this limit are rejected immediately
-- `connectTimeout: 10s` — connections that do not complete the TCP handshake within this window are closed
-
-This allows Makefile test targets (`make test-iperf3-circuit-breaker`, `make test-iperf3-overflow`) to verify that Envoy enforces capacity limits as intended.
+This path tests the nginx Layer 4 proxy and the KinD port-mapping configuration in a single command. Contour cannot route plain TCP without TLS, so iperf3 connects directly through nginx's `stream {}` block, bypassing any HTTP ingress controller.
 
 **Key resources:**
 
 | Resource | Kind | Purpose |
 |----------|------|---------|
-| `apps/base/iperf3/deployment.yaml` | Deployment + Service | iperf3 server (port 9111) |
-| `apps/base/iperf3/tcproute.yaml` | TCPRoute | Envoy Gateway routing rule |
-| `apps/base/iperf3/policy.yaml` | BackendTrafficPolicy | Circuit-breaker configuration |
-| `apps/base/iperf3/netpol.yaml` | NetworkPolicy | Default-deny with carve-outs for DNS and Envoy ingress |
+| `apps/base/iperf3/deployment.yaml` | Deployment + Service | iperf3 server (port 32111) |
+| `apps/base/iperf3/networkpolicies.yaml` | NetworkPolicy | Default-deny with carve-outs for DNS and nginx stream ingress |
+| `apps/overlays/kind/istio/nodeport-proxy.yaml` | ConfigMap | nginx stream block proxying port 9111 → iperf3 Service:32111 |
 
-See [docs/iperf3.md](iperf3.md) for the complete operational guide, troubleshooting steps, and test procedures.
+See [docs/iperf3.md](iperf3.md) for the complete operational guide and test procedures.

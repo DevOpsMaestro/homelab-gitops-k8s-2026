@@ -1,8 +1,9 @@
 ---
 # Allow nodeport-proxy to receive from anywhere on the node network (hostNetwork)
-# and egress to Envoy Gateway. This NetworkPolicy exists to satisfy Kubescape's
-# "Ingress and Egress blocked" control; the pod uses hostNetwork so it is
-# effectively on the node's network interface, not the pod overlay network.
+# and egress to Contour's Envoy DaemonSet and the iperf3 Service. This
+# NetworkPolicy satisfies Kubescape's "Ingress and Egress blocked" control;
+# the pod uses hostNetwork so it is on the node's network interface, not the
+# pod overlay network.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -16,20 +17,26 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - {} # node-network proxy — any host may connect on port 8888
+    - {} # node-network proxy — any host may connect on ports 8888 / 9111
   egress:
-    - {} # must reach Envoy Gateway ClusterIP across the pod network
+    - {} # must reach Contour and iperf3 ClusterIPs across the pod network
 ---
 # KinD-specific ingress proxy — required because Cilium kube-proxy replacement
 # uses BPF socket programs that block userspace bind() on the NodePort range
 # (30000-32767). KinD's extraPortMappings therefore use containerPort: 8888
-# (outside that range) so this DaemonSet can actually bind and listen.
+# and containerPort: 9111 (both outside that range) so this DaemonSet can
+# actually bind and listen.
 #
-# Traffic flow:
-#   localhost:8080  →  (KinD extraPortMapping containerPort: 8888)
-#   control-plane:8888  →  (this nginx, hostNetwork: true)
-#   envoy-proxy.envoy-gateway-system.svc.cluster.local:80  →  (Envoy Gateway proxy)
-#   HTTPRoute match (grafana.local / prometheus.local)  →  backend service
+# HTTP traffic flow:
+#   localhost:8080  →  KinD extraPortMapping containerPort: 8888
+#   control-plane:8888  →  nginx (hostNetwork: true)
+#   contour-contour-envoy.contour.svc.cluster.local:80  →  Contour Envoy data plane
+#   HTTPProxy match (grafana.local / prometheus.local / httpbin-contour.local)  →  backend
+#
+# TCP traffic flow (iperf3, if enabled):
+#   localhost:32111  →  KinD extraPortMapping containerPort: 9111
+#   control-plane:9111  →  nginx stream block (hostNetwork: true)
+#   iperf3.iperf3.svc.cluster.local:32111  →  iperf3 server pod
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -41,51 +48,31 @@ data:
     events {}
     # TCP stream proxy for iperf3 load testing.
     # KinD extraPortMapping: localhost:32111 → containerPort:9111 (TCP).
-    # nginx forwards raw TCP to the Envoy Gateway proxy ClusterIP on port
-    # 32111, where the TCPRoute picks it up for the iperf3 backend.
-    # Port 9111 is used instead of 32111 because Cilium's BPF kube-proxy
-    # replacement blocks userspace bind() on the NodePort range 30000-32767.
+    # nginx forwards raw TCP directly to the iperf3 Service. Port 9111 is
+    # used (not 32111) because Cilium's BPF kube-proxy replacement blocks
+    # userspace bind() on the NodePort range 30000-32767.
     stream {
         server {
             listen 9111;
-            proxy_pass envoy-proxy.envoy-gateway-system.svc.cluster.local:32111;
+            proxy_pass iperf3.iperf3.svc.cluster.local:32111;
         }
     }
     http {
         access_log off;
         # Defer upstream DNS resolution to request time rather than startup.
         # Without this, nginx crashes on boot if any proxy_pass hostname is
-        # unresolvable — taking down every route. With a resolver + variable,
-        # nginx starts regardless; unresolvable upstreams return 502 per-request
-        # instead of bringing down the whole proxy.
+        # unresolvable. With a resolver + variable, nginx starts regardless;
+        # unresolvable upstreams return 502 per-request instead of crashing.
         resolver 10.96.0.10 valid=10s ipv6=off;
-        # Contour ingress stack — routes traffic to Contour's Envoy data plane.
-        # Service name: contour-contour-envoy (Helm release name prefix = contour-contour).
-        # Must precede the catch-all server_name _ block.
-        server {
-            listen 8888;
-            server_name httpbin-contour.local;
-            location / {
-                set $contour_upstream http://contour-contour-envoy.contour.svc.cluster.local:80;
-                proxy_pass         $contour_upstream;
-                proxy_http_version 1.1;
-                proxy_set_header   Host              $host;
-                proxy_set_header   X-Real-IP         $remote_addr;
-                proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
-                proxy_read_timeout 60s;
-            }
-        }
-        # Envoy Gateway ingress stack — catch-all for all other hostnames.
-        # default_server is required: server_name _ is an invalid DNS name that
-        # matches nothing. Without default_server, nginx falls back to the FIRST
-        # defined server block for unmatched hosts — which would be the Contour
-        # block, breaking Grafana and Prometheus routes.
+        # All HTTP hostnames (grafana.local, prometheus.local, httpbin-contour.local)
+        # are handled by Contour's Envoy DaemonSet. Service name follows the
+        # Helm naming convention: <release>-<chart>-envoy = contour-contour-envoy.
         server {
             listen 8888 default_server;
             server_name _;
             location / {
-                set $egw_upstream http://envoy-proxy.envoy-gateway-system.svc.cluster.local;
-                proxy_pass         $egw_upstream;
+                set $contour_upstream http://contour-contour-envoy.contour.svc.cluster.local:80;
+                proxy_pass         $contour_upstream;
                 proxy_http_version 1.1;
                 proxy_set_header   Host              $host;
                 proxy_set_header   X-Real-IP         $remote_addr;
