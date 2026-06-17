@@ -14,7 +14,7 @@ resources:
   - ../../base/boinc
   - contour/
   # Uncomment to enable:
-  # - ../../base/iperf3        # iperf3 feature flag — run: make iperf3-enable to restore
+  - ../../base/iperf3
   # - cert-manager/
   # - openebs/
   # - cilium/   # placeholder for CiliumNetworkPolicy resources; the CNI
