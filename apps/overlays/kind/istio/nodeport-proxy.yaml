@@ -52,6 +52,7 @@ data:
     # used (not 32111) because Cilium's BPF kube-proxy replacement blocks
     # userspace bind() on the NodePort range 30000-32767.
     stream {
+        resolver 10.96.0.10 valid=10s ipv6=off;
         server {
             listen 9111;
             proxy_pass iperf3.iperf3.svc.cluster.local:32111;
