@@ -38,7 +38,7 @@ A stable network endpoint that routes traffic to a set of Pods. Pods are created
 
 ### Custom Resource Definition (CRD)
 
-A CRD extends the Kubernetes API with a new resource type. Every `HelmRelease`, `Certificate`, `HTTPRoute`, and `ClusterPolicy` in this cluster is a CRD — installed by a Helm chart and managed like any native Kubernetes object. `kubectl get helmreleases -A` works because Flux registered the HelmRelease CRD at bootstrap time.
+A CRD extends the Kubernetes API with a new resource type. Every `HelmRelease`, `Certificate`, `HTTPProxy`, and `ClusterPolicy` in this cluster is a CRD — installed by a Helm chart and managed like any native Kubernetes object. `kubectl get helmreleases -A` works because Flux registered the HelmRelease CRD at bootstrap time.
 
 ### PersistentVolume / PersistentVolumeClaim (PV / PVC)
 
@@ -303,7 +303,7 @@ kubectl get vulnerabilityreports -A
 | **Loki** | Logs — the text output of every container in the cluster | 7.0.0 | 3.6.7 |
 | **Promtail** | Log collector — a DaemonSet that reads log files on each node and ships them to Loki | 6.17.1 | 3.5.1 |
 | **Grafana Tempo** | Distributed traces — records the full path a request takes through multiple services | 1.24.4 | 2.9.0 |
-| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.158.1 | 0.153.0 |
+| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.158.2 | 0.153.0 |
 
 **How they connect:**
 

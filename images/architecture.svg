@@ -91,13 +91,13 @@
   <text x="1017" y="337" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8" font-style="italic">dependsOn: cilium</text>
 
   <!-- Row 2 (5 boxes, w=206, gap=16) ────────────────────── -->
-  <!-- Envoy Gateway -->
+  <!-- Contour -->
   <rect x="54" y="357" width="206" height="90" rx="8" fill="white" stroke="#15803D" stroke-width="2"/>
-  <text x="157" y="377" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="12" font-weight="700" fill="#15803D">Envoy Gateway 1.8.x</text>
+  <text x="157" y="377" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="12" font-weight="700" fill="#15803D">Contour 1.33.x</text>
   <line x1="62" y1="384" x2="252" y2="384" stroke="#15803D" stroke-width="0.75" opacity="0.35"/>
-  <text x="157" y="400" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">envoy-gateway-system</text>
-  <text x="157" y="414" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">GatewayClass: eg · NP 30080</text>
-  <text x="157" y="428" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">HTTPRoute ingress</text>
+  <text x="157" y="400" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">namespace: contour</text>
+  <text x="157" y="414" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">HTTPProxy CRs · Envoy DaemonSet</text>
+  <text x="157" y="428" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9.5" fill="#475569">sole HTTP ingress controller</text>
   <text x="157" y="441" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8" font-style="italic">dependsOn: cilium</text>
 
   <!-- Tetragon -->
@@ -179,7 +179,7 @@
   <rect x="611" y="550" width="150" height="54" rx="6" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.25"/>
   <text x="686" y="568" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="11" font-weight="700" fill="#1D4ED8">Grafana 10.x</text>
   <text x="686" y="583" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">grafana/grafana · 16 dashboards</text>
-  <text x="686" y="597" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8">HTTPRoute: grafana.local:8080</text>
+  <text x="686" y="597" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8">HTTPProxy: grafana.local:8080</text>
 
   <!-- Tempo chip (row 2) -->
   <rect x="60" y="618" width="155" height="54" rx="6" fill="#EFF6FF" stroke="#1D4ED8" stroke-width="1.25"/>
@@ -195,7 +195,7 @@
 
   <!-- Dashboards note -->
   <text x="408" y="690" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" font-style="italic" fill="#1E40AF">16 dashboards: Cilium · Hubble · Istio · Flux · Falco · Tetragon · Kubescape · cert-manager · Node Exporter · OTel Collector</text>
-  <text x="408" y="705" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" font-style="italic" fill="#1E40AF">Prometheus also exposed via HTTPRoute: prometheus.local:8080</text>
+  <text x="408" y="705" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" font-style="italic" fill="#1E40AF">Prometheus also exposed via HTTPProxy: prometheus.local:8080</text>
 
   <!-- Scrape configs note -->
   <text x="408" y="722" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">additionalScrapeConfigs → Cilium · Falco · Tetragon · Kyverno · Kubescape · Flux (no ServiceMonitor CRD circular dependency)</text>
@@ -222,12 +222,12 @@
   <rect x="884" y="618" width="190" height="54" rx="6" fill="#FFF7ED" stroke="#C2410C" stroke-width="1.25"/>
   <text x="979" y="636" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="11" font-weight="700" fill="#9A3412">iperf3 server</text>
   <text x="979" y="651" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">networkstatic/iperf3:multiarch</text>
-  <text x="979" y="665" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8">TCPRoute · BackendTrafficPolicy</text>
+  <text x="979" y="665" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#94A3B8">nginx stream proxy · port 32111</text>
 
   <text x="979" y="692" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="10" font-weight="600" fill="#7C3AED">demo: Istio sidecar injected</text>
   <text x="979" y="707" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">PeerAuthentication: STRICT mTLS (port 80 PERMISSIVE)</text>
   <text x="979" y="722" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">generates istio_requests_total metrics → OTLP traces → OTel</text>
-  <text x="979" y="737" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">iperf3: maxConnections: 10 circuit-breaker · port 32111</text>
+  <text x="979" y="737" text-anchor="middle" font-family="system-ui, -apple-system, Arial, sans-serif" font-size="9" fill="#475569">iperf3: nginx stream{} → ClusterIP Service · port 32111</text>
 
   <!-- ══════════════════════════════════════════════════════════
        Band 4 · Runtime Security (cross-cutting)

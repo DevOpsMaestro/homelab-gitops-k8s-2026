@@ -530,7 +530,7 @@ kubectl logs -n openebs deploy/openebs-openebs-localpv-provisioner | tail -50
 # Mesh-wide config analysis — reports misconfigurations, missing labels, port naming issues
 istioctl analyze --all-namespaces
 # What it catches:
-# Mismatched mTLS policies, broken HTTPRoute/VirtualService destinations,
+# Mismatched mTLS policies, broken VirtualService destinations,
 # missing sidecar injection webhooks, or gateways referencing non-existent secrets.
 
 # Confirm istiod is synced with all Envoy proxies (sidecars + auto-provisioned gateway)

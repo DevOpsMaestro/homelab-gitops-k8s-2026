@@ -5,9 +5,9 @@ one to the relevant NIST post-quantum standard, and gives an honest verdict on w
 be changed today vs. what requires waiting for upstream tool support.
 
 **Bottom line:** No component in this cluster can be switched to a NIST PQC algorithm
-today without losing compatibility. Every tool involved — Istio, cert-manager, Age/SOPS,
-and Envoy — does not yet support the new algorithms. The value of this document is a
-clear picture of what to watch and what to change when tool support arrives.
+today without losing compatibility. Every relevant tool — Istio, cert-manager, Age/SOPS,
+and Contour's Envoy data plane — lacks stable PQC support. The value of this document is a
+clear inventory of what to watch and what to change when tool support arrives.
 
 ---
 
@@ -92,21 +92,17 @@ aware of the need; no release date is set.
 
 ---
 
-### 4. Envoy Gateway — Ingress (HTTP Only)
+### 4. Contour — HTTP Ingress
 
-**Config:** `apps/base/envoy-gateway/gateway.yaml` · `infrastructure/controllers/envoy-gateway.yaml`
+**Config:** `infrastructure/controllers/contour.yaml` · `apps/base/contour/httproxy.yaml`
 
-The Gateway listener is plain HTTP (port 80). No TLS is configured at the ingress layer.
+Contour is the sole HTTP ingress controller. It manages its own Envoy DaemonSet via xDS and routes traffic to Grafana, Prometheus, and the httpbin demonstration workload. The listener is plain HTTP (port 80). No TLS is configured at the ingress layer.
 
-**What's at risk:** Nothing currently — there is no TLS handshake to attack.
+**What's at risk:** Nothing currently — there is no TLS handshake to attack at the ingress layer.
 
-**Future consideration:** When HTTPS is added, both the certificate key algorithm and the
-TLS handshake key exchange would need PQC variants. Envoy uses BoringSSL, which added
-experimental hybrid support (`X25519Kyber768Draft00`) in some versions, but this is not
-exposed through the Envoy Gateway API surface in any stable release.
+**Future consideration:** When HTTPS is added, both the certificate key algorithm and the TLS handshake key exchange will require PQC-capable variants. Contour's Envoy data plane uses BoringSSL, which added experimental hybrid support (`X25519Kyber768Draft00`) in some builds, but Contour does not expose this through its `HTTPProxy` or `TLSCertificateDelegation` API surface in any stable release.
 
-**Recommendation:** When HTTPS support is added to this cluster, design it PQC-ready from
-the start rather than retrofitting.
+**Recommendation:** When HTTPS support is added to this cluster, design it PQC-ready from the start rather than retrofitting. The relevant Contour feature to watch is support for custom TLS cipher suites in `HTTPProxy.spec.virtualhost.tls`.
 
 ---
 
@@ -139,7 +135,7 @@ its own built-in certificate generator (RSA or ECDSA, version-dependent).
 | SOPS + Age | X25519 key encapsulation | ML-KEM (FIPS 203) | ❌ No |
 | Istio mTLS workload certs | ECDSA P-256 | ML-DSA (FIPS 204) | ❌ No |
 | cert-manager (future issuers) | ECDSA / RSA | ML-DSA (FIPS 204) | ❌ No |
-| Envoy Gateway | None (HTTP only) | ML-KEM (FIPS 203) when HTTPS added | N/A |
+| Contour (Envoy data plane) | None (HTTP only, no TLS at ingress) | ML-KEM (FIPS 203) when HTTPS added | N/A |
 | OTel → Tempo gRPC | None (TLS disabled) | N/A | N/A |
 | Cilium Hubble PKI | ECDSA / RSA (default) | ML-DSA (FIPS 204) | ❌ No |
 
@@ -158,7 +154,7 @@ The `Post Quantum Computing` GitHub Actions workflow (`.github/workflows/pqc-wat
 | **Age / SOPS** | Age spec adds ML-KEM hybrid recipient type; SOPS ships updated `age` provider |
 | **Istio** | Citadel CA adds configurable key algorithm, or stable cert-manager PQC integration |
 | **cert-manager** | `spec.privateKey.algorithm: ML-DSA` added to the Certificate CRD |
-| **Envoy Gateway** | Stable BoringSSL PQC cipher suites exposed via `BackendTLSPolicy` or `ClientTLSPolicy` |
+| **Contour** | Custom TLS cipher suite support in `HTTPProxy.spec.virtualhost.tls` — stable BoringSSL PQC cipher suites in the Envoy data plane |
 | **Cilium** | Hubble PKI generator adds configurable key algorithm |
 
 ---

@@ -6,35 +6,35 @@ Configuration: `renovate.json` at repository root · Workflow: `.github/workflow
 
 ## How Renovate Works
 
-Renovate is a bot that automatically checks if your project's dependencies — the outside libraries and tools your code relies on — are out of date, then opens a pull request to update them. Think of it like a robot that reads your list of dependencies, checks whether newer versions exist, and hands you a suggested update to review.
+Renovate is an automated dependency update tool. It scans a repository for pinned dependency versions, checks upstream registries for newer releases, and opens a pull request for each detected update. Renovate operates on a schedule rather than as a persistent process — it runs, performs its work, and exits.
 
 ### Onboarding (First Run Only)
 
-The first time Renovate visits a repository, it looks for a `renovate.json` config file. If one does not exist, it creates a branch called `renovate/configure` and opens an **onboarding PR** that proposes a starter config. Renovate will not open any other PRs until that onboarding PR is merged — it requests permission before performing any update work.
+The first time Renovate scans a repository, it looks for a `renovate.json` configuration file. If none exists, it creates a branch called `renovate/configure` and opens an onboarding pull request that proposes a starter configuration. Renovate does not open any further pull requests until that onboarding pull request is merged — this design requires explicit consent before automated updates begin.
 
 ### The Pipeline
 
 Each time Renovate runs, it follows this sequence:
 
-1. **Initialize** — reads and merges all config (`renovate.json`, admin settings, defaults) and connects to the Git platform (GitHub, GitLab, etc.)
-2. **Scan** — the Manager module walks the repository file by file, extracts every dependency and its current version, and tags each one with the right datasource
-3. **Look up** — the Datasource module contacts registries (npm, Docker Hub, Helm chart repos, etc.) and fetches all available versions
-4. **Filter** — the Versioning module sorts valid upgrades based on your constraints (e.g. "only patch updates", "stay on `1.17.x`")
-5. **Create PRs** — the Platform module creates a branch and opens a PR for each update, including the changelog, how old the new version is, and how many other projects have already adopted it
-6. **Clean up** — stale branches for updates that were superseded by even newer versions are closed automatically
+1. **Initialize** — reads and merges all configuration (`renovate.json`, platform settings, and built-in defaults) and authenticates with the Git platform (GitHub, GitLab, etc.)
+2. **Scan** — the Manager module walks the repository file by file, extracts every dependency and its current version, and associates each one with the appropriate datasource
+3. **Look up** — the Datasource module contacts upstream registries (Docker Hub, Helm chart repositories, GitHub Releases, etc.) and retrieves all available versions
+4. **Filter** — the Versioning module identifies valid upgrades based on the configured constraints (for example, "patch updates only" or "stay on `1.17.x`")
+5. **Create PRs** — the Platform module creates a branch and opens a pull request for each update, including the changelog, the time elapsed since the new version was published, and adoption statistics from other projects
+6. **Clean up** — branches for updates superseded by even newer versions are closed automatically
 
-Renovate is stateless — it does not keep a database. It re-reads your repository and registries on every run, so if it crashes mid-run, the next run picks up cleanly.
+Renovate is stateless. It re-reads the repository and all registries on every run; if a run is interrupted, the next run resumes cleanly from the current repository state.
 
 ### The Four Core Modules
 
-| Module | Job | Analogy |
-|---|---|---|
-| **Manager** | Finds dependency files and reads the currently pinned versions | A reader who scans the code |
-| **Datasource** | Contacts registries to fetch available versions | A shopper who checks the store shelves |
-| **Versioning** | Decides which versions are valid upgrades | A filter that sorts good options from bad |
-| **Platform** | Talks to GitHub/GitLab to create branches and PRs | The delivery driver who submits the update |
+| Module | Responsibility |
+|---|---|
+| **Manager** | Locates dependency declaration files and reads the currently pinned versions |
+| **Datasource** | Queries upstream registries to retrieve available versions |
+| **Versioning** | Evaluates which discovered versions are valid upgrades under the configured constraints |
+| **Platform** | Communicates with GitHub or GitLab to create branches and open pull requests |
 
-Different package ecosystems use different version formats (npm uses `1.0.0-beta.1`, pip uses `1.0.0b1`, etc.) — the swappable Versioning module handles these differences per manager.
+Different package ecosystems use different version formats — npm uses `1.0.0-beta.1`, pip uses `1.0.0b1`, and so on. The Versioning module is swappable per manager to handle these differences correctly.
 
 ---
 
@@ -45,9 +45,9 @@ Renovate scans the repository for version strings and opens pull requests when n
 - **Flux HelmRelease version constraints** — `1.17.x`, `3.x`, `0.x`, etc. in `apps/` and `infrastructure/`; this includes the Contour chart constraint (`0.x` in `infrastructure/controllers/contour.yaml`)
 - **Direct container image tags** — images in Kubernetes manifests (BOINC, httpbin, etc.)
 - **GitHub Actions** — version pins in `.github/workflows/`
-- **CLI tool versions** — `versions.env` and workflow environment variables for Cilium, Istio, Envoy Gateway, Kubernetes node image, Kyverno CLI, and Kubescape
+- **CLI tool versions** — `versions.env` and workflow environment variables for Cilium, Istio, the Kubernetes node image, Kyverno CLI, and Kubescape
 
-`CONTOUR_VERSION` in `versions.env` is not tracked by a custom regex manager. Unlike Cilium, Istio, and Envoy Gateway — which must be pre-installed by the bootstrap script before Flux runs — Contour is installed entirely by Flux. The `CONTOUR_VERSION` value in `versions.env` is recorded for reference only. Renovate tracks the chart constraint (`0.x`) through the `flux` manager; when that constraint advances, Flux deploys the updated chart automatically without requiring a change to any script or bootstrap step.
+`CONTOUR_VERSION` in `versions.env` is not tracked by a custom regex manager. Unlike Cilium and Istio — which must be pre-installed by the bootstrap script before Flux runs — Contour is installed entirely by Flux. The `CONTOUR_VERSION` value in `versions.env` is recorded for reference only. Renovate tracks the chart constraint (`0.x`) through the `flux` manager; when that constraint advances, Flux deploys the updated chart automatically without requiring a change to any script or bootstrap step.
 
 ---
 

@@ -26,15 +26,15 @@ The Grafana Helm chart injects the admin password into the pod via the `GF_SECUR
 
 ---
 
-### Finding 2: Workload Exposed to Internet via Gateway API
+### Finding 2: Workload Exposed to Internet via Ingress Controller
 
-**Control:** Exposure to internet via load balancer / Gateway API
+**Control:** Exposure to internet via load balancer / ingress
 **Framework:** NSA Kubernetes Hardening Guide
-**Affected resources:** HTTPRoutes in namespace `demo` (httpbin), `observability` (Grafana, Prometheus)
+**Affected resources:** `HTTPProxy` CRs in namespace `demo` (httpbin), `observability` (Grafana, Prometheus)
 **Severity:** Medium
 
 **Description:**
-Kubescape flags workloads whose traffic is routed through a Gateway API `HTTPRoute` as potentially exposed to external networks. The cluster's Envoy Gateway `GatewayClass` presents an externally-reachable listener, and HTTPRoutes for Grafana, Prometheus, and the httpbin demonstration application are attached to it.
+Kubescape flags workloads whose traffic is routed through an ingress controller as potentially exposed to external networks. Three `HTTPProxy` CRs (`grafana.local`, `prometheus.local`, `httpbin-contour.local`) are attached to the Contour Envoy DaemonSet, which accepts traffic forwarded by the nginx nodeport-proxy on port 8888.
 
 **Rationale for acceptance:**
 - The exposure is intentional. The KinD cluster is accessible only from `localhost` via `extraPortMappings` in the node configuration. No public IP address or cloud load balancer is involved.
