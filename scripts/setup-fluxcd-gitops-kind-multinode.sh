@@ -51,7 +51,6 @@ _check_http_repo  "istio"                "https://istio-release.storage.googleap
 _check_http_repo  "prometheus-community" "https://prometheus-community.github.io/helm-charts"
 _check_http_repo  "grafana"              "https://grafana.github.io/helm-charts"
 _check_http_repo  "kubescape"            "https://kubescape.github.io/helm-charts"
-_check_oci_chart  "envoy-gateway"        "oci://docker.io/envoyproxy/gateway-helm" "${ENVOY_GATEWAY_VERSION}"
 
 if [[ $PREFLIGHT_FAILED -eq 1 ]]; then
   printf "\n  ✗ Pre-flight failed — fix the unreachable sources above before continuing.\n"
@@ -146,7 +145,7 @@ nodes:
     # Envoy Gateway proxy ClusterIP, bypassing the Cilium NodePort limitation.
     #
     #   localhost:8080  →  containerPort:8888  →  nginx (hostNetwork)
-    #   nginx  →  envoy-proxy.envoy-gateway-system.svc:80  →  HTTPRoute
+    #   nginx  →  contour-contour-envoy.contour.svc:80  →  HTTPProxy
     extraPortMappings:
       - containerPort: 8888
         hostPort: 8080
@@ -156,7 +155,7 @@ nodes:
         protocol: TCP
       # iperf3 TCP load-testing path:
       #   localhost:32111  →  containerPort:9111  →  nginx stream{}
-      #   nginx  →  envoy-proxy.envoy-gateway-system.svc:32111  →  TCPRoute
+      #   nginx  →  iperf3.iperf3.svc:32111  (direct; no ingress controller)
       # Port 9111 is below the NodePort range (30000-32767) so nginx can
       # bind() on it despite Cilium's BPF socket programs blocking that range.
       - containerPort: 9111
@@ -277,45 +276,25 @@ printf "  Waiting for CoreDNS to be ready...\n"
 kubectl rollout status deployment/coredns -n kube-system --timeout=120s
 printf "  ✓ CoreDNS is ready — DNS resolution available\n"
 
-# ── Step 4: Kubernetes Gateway API CRDs ──────────────────────────────────────
-# Gateway API CRDs are not bundled with Kubernetes itself and must be installed
-# separately before Flux bootstraps. Installing them now (pre-bootstrap) means
-# Flux can apply the Gateway and HTTPRoute resources in apps/base/istio without
-# waiting for a separate CRD Kustomization to reconcile first.
-#
-# The standard-install.yaml bundle installs the v1 (GA) Gateway API group:
-#   GatewayClass, Gateway, HTTPRoute, ReferenceGrant, GRPCRoute, BackendLBPolicy
-#
-# Pin to a specific release tag so the install is reproducible. Keep this in
-# sync with any version constraint in infrastructure if one is added later.
-printf "\n[4/9] Installing Kubernetes Gateway API CRDs (v1.2.1)\n"
-kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
-printf "  Waiting for Gateway API CRDs to be established...\n"
-kubectl wait --for=condition=Established --timeout=60s \
-  crd/gateways.gateway.networking.k8s.io \
-  crd/httproutes.gateway.networking.k8s.io \
-  crd/gatewayclasses.gateway.networking.k8s.io
-printf "  ✓ Gateway API CRDs ready\n"
-
-# ── Step 5: Flux CLI ──────────────────────────────────────────────────────────
+# ── Step 4: Flux CLI ──────────────────────────────────────────────────────────
 if ! command -v flux &> /dev/null; then
-  printf "\n[5/9] Installing Flux CLI...\n"
+  printf "\n[4/9] Installing Flux CLI...\n"
   brew install fluxcd/tap/flux
 else
-  printf "\n[5/9] Flux CLI already installed\n"
+  printf "\n[4/9] Flux CLI already installed\n"
 fi
 
-# ── Step 6: GitHub CLI ────────────────────────────────────────────────────────
+# ── Step 5: GitHub CLI ────────────────────────────────────────────────────────
 if ! command -v gh &> /dev/null; then
-  printf "[6/9] Installing GitHub CLI...\n"
+  printf "[5/9] Installing GitHub CLI...\n"
   brew install gh
 fi
 
-# ── Step 7: GitHub auth ───────────────────────────────────────────────────────
-printf "[7/9] Authenticating GitHub CLI...\n"
+# ── Step 6: GitHub auth ───────────────────────────────────────────────────────
+printf "[6/9] Authenticating GitHub CLI...\n"
 gh auth status 2>/dev/null || gh auth login
 
-# ── Step 8: Flux bootstrap ────────────────────────────────────────────────────
+# ── Step 7: Flux bootstrap ────────────────────────────────────────────────────
 # Cilium is already running so the Flux pods schedule immediately.
 # When Flux reconciles infrastructure/controllers/cilium.yaml it detects
 # the existing Helm release and adopts it.
@@ -342,7 +321,7 @@ fi
 # default SSH (port 22), which is blocked in many corporate and home networks.
 export GITHUB_TOKEN="$(gh auth token)"
 
-printf "[8/9] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
+printf "[7/9] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
 flux bootstrap github \
   --owner="$GITHUB_USER" \
   --repository="$REPO_NAME" \
@@ -351,7 +330,7 @@ flux bootstrap github \
   --personal \
   --token-auth
 
-# ── Step 9: SOPS age key (optional — only runs if key file exists) ────────────
+# ── Step 8: SOPS age key (optional — only runs if key file exists) ────────────
 # If the user has run `make sops-setup`, the age private key lives at the
 # standard path. Loading it here ensures kustomize-controller can decrypt
 # SOPS-encrypted secrets on the first reconciliation, before any manual
@@ -359,18 +338,18 @@ flux bootstrap github \
 # The secret is recreated on every bootstrap (idempotent via --dry-run=client).
 AGE_KEY_FILE="${HOME}/.config/sops/age/keys.txt"
 if [ -f "${AGE_KEY_FILE}" ]; then
-  printf "\n[9/10] Loading SOPS age key into cluster\n"
+  printf "\n[8/9] Loading SOPS age key into cluster\n"
   cat "${AGE_KEY_FILE}" | kubectl create secret generic sops-age \
     --namespace flux-system \
     --from-file=age.agekey=/dev/stdin \
     --dry-run=client -o yaml | kubectl apply -f -
   printf "  ✓ sops-age secret created in flux-system\n"
 else
-  printf "\n[9/10] SOPS age key not found at %s — skipping\n" "${AGE_KEY_FILE}"
+  printf "\n[8/9] SOPS age key not found at %s — skipping\n" "${AGE_KEY_FILE}"
   printf "       Run 'make sops-setup' then 'make sops-load-key' to enable SOPS decryption\n"
 fi
 
-# ── Step 10: GitHub notification token ───────────────────────────────────────
+# ── Step 9: GitHub notification token ────────────────────────────────────────
 # The Flux notification controller posts commit status checks back to GitHub
 # for every Kustomization and HelmRelease reconciliation. It needs a token with
 # repo:status scope (public repo) or repo scope (private repo).
@@ -380,7 +359,7 @@ fi
 #
 # The secret is not committed to git (it would be visible in the public repo).
 # This step recreates it on every bootstrap so a fresh cluster always has it.
-printf "\n[10/10] Creating github-token secret for Flux notification provider\n"
+printf "\n[9/9] Creating github-token secret for Flux notification provider\n"
 kubectl create secret generic github-token \
   --namespace flux-system \
   --from-literal=token="${GITHUB_TOKEN}" \

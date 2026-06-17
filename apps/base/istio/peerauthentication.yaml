@@ -29,8 +29,8 @@ spec:
     mode: STRICT
 ---
 # httpbin: allow plain text on port 80.
-# Envoy Gateway (no Istio sidecar) routes grafana.local here and sends
-# plain text. All other ports on httpbin remain STRICT.
+# Contour Envoy (no Istio sidecar) routes httpbin-contour.local here and
+# sends plain text. All other ports on httpbin remain STRICT.
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -57,7 +57,7 @@ spec:
     mode: STRICT
 ---
 # Grafana: allow plain text on port 3000.
-# Envoy Gateway (no Istio sidecar) routes grafana.local here.
+# Contour Envoy (no Istio sidecar) routes grafana.local here.
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
@@ -91,7 +91,7 @@ spec:
       mode: PERMISSIVE
 ---
 # Prometheus: allow plain text on port 9090.
-# Envoy Gateway (no Istio sidecar) routes prometheus.local here and sends
+# Contour Envoy (no Istio sidecar) routes prometheus.local here and sends
 # plain text. All other ports on Prometheus remain STRICT.
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication

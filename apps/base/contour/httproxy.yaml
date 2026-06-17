@@ -1,13 +1,11 @@
 ---
-# HTTPProxy is Contour's own routing CRD (projectcontour.io/v1). It serves the
-# same role as Gateway API's HTTPRoute but uses Contour's vocabulary. This
-# resource lives in the demo namespace so it co-locates with the httpbin Service
-# it routes to — the same pattern used by Envoy Gateway's HTTPRoutes in the
-# observability namespace.
+# Contour HTTPProxy CRs — one per virtualhost.
+# Each resource lives in the namespace of the Service it routes to, following
+# the same co-location pattern Envoy Gateway used for its HTTPRoutes.
 #
-# Traffic path:
-#   localhost:8080 → KinD → nginx (httpbin-contour.local) → envoy.contour:80
-#   → Contour Envoy data plane → HTTPProxy match → httpbin.demo:80
+# Traffic path (HTTP):
+#   localhost:8080 → KinD extraPortMapping → nginx (port 8888, hostNetwork)
+#   → contour-contour-envoy.contour:80 → Contour xDS match → backend Service
 apiVersion: projectcontour.io/v1
 kind: HTTPProxy
 metadata:
@@ -22,3 +20,33 @@ spec:
       services:
         - name: httpbin
           port: 80
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: grafana
+  namespace: observability
+spec:
+  virtualhost:
+    fqdn: grafana.local
+  routes:
+    - conditions:
+        - prefix: /
+      services:
+        - name: observability-grafana
+          port: 80
+---
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
+metadata:
+  name: prometheus
+  namespace: observability
+spec:
+  virtualhost:
+    fqdn: prometheus.local
+  routes:
+    - conditions:
+        - prefix: /
+      services:
+        - name: observability-kube-prometh-prometheus
+          port: 9090

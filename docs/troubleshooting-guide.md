@@ -1,7 +1,7 @@
 # Troubleshooting Guide
 
 Cluster: `flux-kind` · KinD 1.36.1 · 1 control-plane + 2 workers
-Stack: Flux CD · Cilium 1.19 · Hubble · cert-manager 1.20 · OpenEBS 4.x · Istio 1.30 (mesh only) · Gateway API v1.2.1 · Envoy Gateway 1.8 · Contour 1.33 · Metrics Server 3.x · Tetragon 1.7 · Kyverno 3 · Kubescape 1.40 · Falco 9 · Trivy Operator 0.x · kube-prometheus-stack 86 · Grafana 10 (app 12) · Grafana Tempo 1 · OpenTelemetry Collector 0 · BOINC · SOPS + Age · iperf3
+Stack: Flux CD · Cilium 1.19 · Hubble · cert-manager 1.20 · OpenEBS 4.x · Istio 1.30 (mesh only) · Contour 1.33 · Metrics Server 3.x · Tetragon 1.7 · Kyverno 3 · Kubescape 1.40 · Falco 9 · Trivy Operator 0.x · kube-prometheus-stack 86 · Grafana 10 (app 12) · Grafana Tempo 1 · OpenTelemetry Collector 0 · BOINC · SOPS + Age · iperf3
 
 ---
 
@@ -16,7 +16,7 @@ Stack: Flux CD · Cilium 1.19 · Hubble · cert-manager 1.20 · OpenEBS 4.x · I
 6. [cert-manager](#6-cert-manager)
 7. [OpenEBS](#7-openebs)
 8. [Istio](#8-istio)
-9. [Envoy Gateway](#9-envoy-gateway)
+9. [HTTP Ingress — Contour](#9-http-ingress--contour)
 10. [Loki and Promtail](#10-loki-and-promtail)
 11. [Tetragon](#11-tetragon)
 12. [Kyverno](#12-kyverno)
@@ -80,9 +80,9 @@ Expected: all pods `Running` or `Completed`, all Flux resources `READY: True`, a
 
 ## 2. Accessing Service UIs
 
-Grafana and Prometheus are exposed via Kubernetes Gateway API HTTPRoutes through Envoy Gateway. All other services use `kubectl port-forward`.
+Grafana, Prometheus, and httpbin-contour are exposed via Contour `HTTPProxy` resources through the Contour Envoy DaemonSet. All other services use `kubectl port-forward`.
 
-Traffic path: `localhost:8080 → KinD extraPortMapping (containerPort 8888) → nginx nodeport-proxy (hostNetwork, port 8888) → envoy-proxy ClusterIP (envoy-gateway-system) → Envoy proxy → HTTPRoute → backend service`
+Traffic path: `localhost:8080 → KinD extraPortMapping (containerPort 8888) → nginx nodeport-proxy (hostNetwork, port 8888) → contour-contour-envoy.contour.svc:80 → Contour Envoy DaemonSet → HTTPProxy → backend service`
 
 ### Prerequisite — /etc/hosts (One-Time)
 
@@ -94,8 +94,8 @@ echo "127.0.0.1 grafana.local prometheus.local httpbin-contour.local" | sudo tee
 
 | UI | Access Method | Local URL | Credentials |
 |---|---|---|---|
-| Grafana | Gateway API HTTPRoute | `http://grafana.local:8080` | admin / changeme |
-| Prometheus | Gateway API HTTPRoute | `http://prometheus.local:8080` | none |
+| Grafana | Contour HTTPProxy | `http://grafana.local:8080` | admin / changeme |
+| Prometheus | Contour HTTPProxy | `http://prometheus.local:8080` | none |
 | Alertmanager | kubectl port-forward | `http://localhost:9093` | none |
 | Hubble UI | kubectl port-forward | `http://localhost:12000` | none |
 
@@ -160,23 +160,22 @@ The Cilium CLI also handles the port-forward automatically:
 cilium hubble ui
 ```
 
-### Gateway and HTTPRoute Health
+### Contour and HTTPProxy Health
 
 ```bash
-# Gateway should show PROGRAMMED: True
-kubectl get gateway -n envoy-ingress
+# Contour controller and Envoy DaemonSet pods
+kubectl get pods -n contour
 
-# HTTPRoutes should show ACCEPTED: True
-kubectl get httproute -A
+# All HTTPProxy CRs — STATUS should be valid
+kubectl get httpproxy -A
 
-# Detailed status on a specific route
-kubectl get httproute grafana -n observability -o jsonpath='{.status.parents}' | python3 -m json.tool
+# Detailed HTTPProxy status
+kubectl describe httpproxy grafana -n observability
+kubectl describe httpproxy prometheus -n observability
+kubectl describe httpproxy httpbin -n demo
 
-# Envoy proxy pod — should be 1/1 Running
-kubectl get pods -n envoy-ingress
-
-# NodePort Service — confirm nodePort is 30080
-kubectl get svc -n envoy-ingress
+# Contour Envoy Service — should have ClusterIP in the contour namespace
+kubectl get svc contour-contour-envoy -n contour
 ```
 
 ---
@@ -541,7 +540,7 @@ istioctl proxy-status
 istioctl experimental precheck
 ```
 
-### Ingress Connectivity Test (Envoy Gateway)
+### Ingress Connectivity Test (Contour)
 
 ```bash
 # Quick end-to-end check without /etc/hosts (use Host header)
@@ -551,8 +550,8 @@ curl -s -o /dev/null -w "%{http_code}" -H "Host: grafana.local" http://localhost
 curl -s -o /dev/null -w "%{http_code}" -H "Host: prometheus.local" http://localhost:8080/
 # Expected: 200 (Prometheus UI)
 
-# Envoy proxy readiness endpoint
-curl -s http://localhost:8080/healthz/ready
+curl -s -o /dev/null -w "%{http_code}" -H "Host: httpbin-contour.local" http://localhost:8080/get
+# Expected: 200
 ```
 
 ### mTLS Functional Test
@@ -650,104 +649,81 @@ kubectl logs -n istio-system deploy/istiod | \
 
 ---
 
-## 9. Envoy Gateway
+## 9. HTTP Ingress — Contour
 
-### Envoy Gateway Status
+Contour is the sole HTTP ingress controller. It watches `HTTPProxy` CRs, compiles them into Envoy xDS configuration, and streams that configuration to its Envoy DaemonSet over gRPC on port 8001. The nginx `nodeport-proxy` in `envoy-ingress` receives all external HTTP traffic on port 8888 and forwards it to the Contour Envoy DaemonSet (`contour-contour-envoy.contour.svc.cluster.local:80`). Contour then routes by the `Host` header.
 
-```bash
-# Controller pod — should be Running in envoy-gateway-system
-kubectl get pods -n envoy-gateway-system
-
-# GatewayClass eg — defined in apps/base/envoy-gateway/gateway.yaml, ACCEPTED: True means EG is ready
-kubectl get gatewayclass eg
-
-# Gateway in envoy-ingress — PROGRAMMED: True means the data-plane is provisioned
-kubectl get gateway -n envoy-ingress -o wide
-
-# Auto-provisioned Envoy proxy pod — EG v1.4.x provisions in envoy-gateway-system
-kubectl get pods -n envoy-gateway-system -l app.kubernetes.io/component=proxy
-
-# Auto-provisioned NodePort Service — check nodePort is 30080
-kubectl get svc -n envoy-ingress
-
-# Stable ClusterIP Service used by nginx nodeport-proxy
-kubectl get svc envoy-proxy -n envoy-gateway-system
-```
-
-### HTTPRoute Attachment
+### Status
 
 ```bash
-# All HTTPRoutes — ACCEPTED column must be True
-kubectl get httproute -A
+# Flux HelmRelease
+flux get helmrelease contour -n flux-system
+# Expected: READY True, chart 0.x (app version v1.33.x)
 
-# Detailed attachment status (Accepted + ResolvedRefs conditions)
-kubectl get httproute grafana -n observability \
-  -o jsonpath='{.status.parents[0].conditions}' | python3 -m json.tool
+# Controller and Envoy DaemonSet pods
+kubectl get pods -n contour
+# Expected: contour-contour-* Running (controller), contour-contour-envoy-* Running (data plane, one per node)
 
-kubectl get httproute prometheus -n observability \
-  -o jsonpath='{.status.parents[0].conditions}' | python3 -m json.tool
+# All HTTPProxy CRs — STATUS should be valid
+kubectl get httpproxy -A
 ```
 
 ### End-to-End Connectivity Test
 
 ```bash
-# Quick check without /etc/hosts (use Host header directly)
-curl -s -o /dev/null -w "%{http_code}" -H "Host: grafana.local" http://localhost:8080/
-# Expected: 302 (Grafana login redirect)
+# All three routes through Contour
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: grafana.local" http://localhost:8080/
+# Expected: 302
 
-curl -s -o /dev/null -w "%{http_code}" -H "Host: prometheus.local" http://localhost:8080/
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: prometheus.local" http://localhost:8080/
 # Expected: 200
 
-# Envoy proxy readiness endpoint
-curl -s http://localhost:8080/healthz/ready
-# Expected: 200 OK
+curl -s -o /dev/null -w "%{http_code}\n" -H "Host: httpbin-contour.local" http://localhost:8080/get
+# Expected: 200
 ```
 
-### Envoy Gateway Logs
+### HTTPProxy Conditions
 
 ```bash
-# Controller logs
-kubectl logs -n envoy-gateway-system deploy/envoy-gateway | tail -50
-
-# Data-plane Envoy proxy logs (auto-provisioned pod — lives in envoy-gateway-system)
-kubectl logs -n envoy-gateway-system -l app.kubernetes.io/component=proxy | tail -50
+kubectl describe httpproxy grafana -n observability
+kubectl describe httpproxy prometheus -n observability
+kubectl describe httpproxy httpbin -n demo
 ```
 
-### EnvoyProxy CR Status
+A healthy HTTPProxy shows `Status: valid`. An `orphaned` or `invalid` status means the virtual host FQDN conflicts with another HTTPProxy or a required field is missing.
+
+### Contour Logs
 
 ```bash
-# Check if the EnvoyProxy CR is accepted by the controller
-kubectl describe envoyproxy kindconfig -n envoy-ingress
+# Controller logs — xDS pushes, HTTPProxy reconciliation
+kubectl logs -n contour -l app.kubernetes.io/name=contour,app.kubernetes.io/component=contour | tail -50
+
+# Envoy data-plane logs — access logs and errors
+kubectl logs -n contour -l app.kubernetes.io/component=envoy | tail -50
 ```
 
-### Adding a New Service via HTTPRoute
+### Adding a New Service via HTTPProxy
 
-Create an `HTTPRoute` in the service's namespace:
+Create an `HTTPProxy` CR in the service's namespace:
 
 ```yaml
-apiVersion: gateway.networking.k8s.io/v1
-kind: HTTPRoute
+apiVersion: projectcontour.io/v1
+kind: HTTPProxy
 metadata:
   name: my-app
   namespace: my-namespace
 spec:
-  parentRefs:
-    - name: main
-      namespace: envoy-ingress
-      sectionName: http
-  hostnames:
-    - "my-app.local"
-  rules:
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /
-      backendRefs:
+  virtualhost:
+    fqdn: my-app.local
+  routes:
+    - conditions:
+        - prefix: /
+      services:
         - name: my-service
           port: 8080
 ```
 
-Then add `127.0.0.1 my-app.local` to `/etc/hosts`.
+Then add `127.0.0.1 my-app.local` to `/etc/hosts`. The nginx catch-all `default_server` block already forwards all hostnames to Contour — no nginx ConfigMap change is required for new routes.
 
 ---
 
@@ -1465,7 +1441,7 @@ helm list -n kube-system
 
 **Symptom:** `curl localhost:8080` connects then receives `Connection reset by peer` after ~15 s.
 **Cause:** On macOS Docker Desktop + Cilium kube-proxy replacement, `localhost:8080` traffic arrives at the KinD container's loopback (`127.0.0.1`), not `eth0`. Cilium's NodePort BPF rules only handle traffic incoming on `eth0` (from the Docker bridge). The TCP handshake completes (Docker's proxy accepts it) but the traffic is never forwarded to the NodePort backend.
-**Active setup:** The nginx `nodeport-proxy` DaemonSet in `apps/overlays/kind/istio/nodeport-proxy.yaml` is the primary path — it runs with `hostNetwork: true` on the control-plane, listens on port 8888 (outside the NodePort range), and proxies to the stable `envoy-proxy` ClusterIP Service in `envoy-gateway-system`. KinD maps `localhost:8080 → containerPort: 8888`.
+**Active setup:** The nginx `nodeport-proxy` DaemonSet in `apps/overlays/kind/istio/nodeport-proxy.yaml` is the primary path — it runs with `hostNetwork: true` on the control-plane, listens on port 8888 (outside the NodePort range), and forwards all HTTP traffic to `contour-contour-envoy.contour.svc.cluster.local:80`. KinD maps `localhost:8080 → containerPort: 8888`.
 
 If traffic fails after confirming Flux is reconciled:
 
@@ -1474,16 +1450,13 @@ If traffic fails after confirming Flux is reconciled:
 kubectl get pods -n envoy-ingress -l app=nodeport-proxy
 kubectl logs -n envoy-ingress -l app=nodeport-proxy | tail -20
 
-# Check the stable ClusterIP Service endpoints
-kubectl get endpoints envoy-proxy -n envoy-gateway-system
-
-# Check if the Envoy proxy pod is receiving traffic
-kubectl logs -n envoy-gateway-system -l app.kubernetes.io/component=proxy | tail -20
+# Check the Contour Envoy DaemonSet pods
+kubectl get pods -n contour -l app.kubernetes.io/component=envoy
 
 # Test from inside the cluster (bypasses macOS Docker Desktop routing)
 kubectl run curl-test --image=curlimages/curl --rm -it --restart=Never -- \
   curl -s -o /dev/null -w "%{http_code}" -H "Host: grafana.local" \
-  http://envoy-proxy.envoy-gateway-system.svc.cluster.local/
+  http://contour-contour-envoy.contour.svc.cluster.local/
 ```
 
 ### ServiceMonitor CRD Not Found During Cilium Install
@@ -1831,7 +1804,7 @@ Key metrics: `trivy_image_vulnerabilities` (by severity), `trivy_resource_config
 
 ## 26. iperf3
 
-iperf3 runs as a single-replica server in the `iperf3` namespace. External tests are initiated from the host Mac and travel through Docker port mappings, the nginx nodeport-proxy `stream {}` block, the Envoy Gateway data plane, and a `TCPRoute` before reaching the server pod. See [docs/iperf3.md](iperf3.md) for the full architecture and test procedures.
+iperf3 runs as a single-replica server in the `iperf3` namespace. External tests are initiated from the host Mac and travel through Docker port mappings and the nginx nodeport-proxy `stream {}` block directly to the iperf3 pod. Contour cannot route plain TCP without TLS, so no HTTP ingress controller is involved. See [docs/iperf3.md](iperf3.md) for the full architecture and test procedures.
 
 ### Quick Health Check
 
@@ -1839,12 +1812,13 @@ iperf3 runs as a single-replica server in the `iperf3` namespace. External tests
 # Pod should be 1/1 Running
 kubectl get pods -n iperf3
 
-# TCPRoute should show Accepted: True and ResolvedRefs: True
-kubectl get tcproute -n iperf3 iperf3 \
-  -o jsonpath='{.status.parents[0].conditions}' | python3 -m json.tool
-
 # Confirm the server is listening inside the pod
 kubectl logs -n iperf3 deploy/iperf3-server --tail=20
+
+# Confirm port 9111 is active on the control-plane node
+kubectl exec -n envoy-ingress \
+  $(kubectl get pod -n envoy-ingress -l app=nodeport-proxy -o jsonpath='{.items[0].metadata.name}') \
+  -- ss -tlnp | grep 9111
 ```
 
 ### Issue — "Connection refused" immediately
@@ -1872,37 +1846,41 @@ docker port flux-kind-control-plane 9111
 
 **Symptom:** `iperf3 -4 -c localhost -p 32111` hangs for several seconds before failing.
 
-**Cause:** A NetworkPolicy is dropping packets somewhere in the path. The most common gap is a missing port entry on the `allow-proxy-http-ingress` policy in `envoy-gateway-system` — if port `32111` is absent, all iperf3 connections are silently dropped after nginx forwards them to the Envoy proxy.
+**Cause:** A NetworkPolicy is dropping packets in the path. The `iperf3` namespace uses a `default-deny` policy. The `allow-nginx-ingress` policy uses an open-port pattern (no `from:` clause) to permit traffic on port 32111 — because nginx uses `hostNetwork: true`, its source IP is the node's host IP, which does not match any pod CIDR selector.
 
 **Diagnose:**
 
 ```bash
-# Confirm port 32111 is present in the allow-proxy-http-ingress policy
-kubectl get networkpolicy -n envoy-gateway-system allow-proxy-http-ingress \
+# Confirm allow-nginx-ingress policy is present and uses open-port pattern
+kubectl get networkpolicy -n iperf3 allow-nginx-ingress \
   -o jsonpath='{.spec.ingress}' | python3 -m json.tool
+# Expected: ingress rule with ports only, no "from" clause
 
 # Test TCP reachability from the nginx proxy pod
-kubectl exec -n envoy-ingress <nodeport-proxy-pod> -- \
-  nc -zv envoy-proxy.envoy-gateway-system.svc.cluster.local 32111
+kubectl exec -n envoy-ingress \
+  $(kubectl get pod -n envoy-ingress -l app=nodeport-proxy -o jsonpath='{.items[0].metadata.name}') \
+  -- nc -zv iperf3.iperf3.svc.cluster.local 32111
 # A timeout (not "refused") confirms NetworkPolicy DROP
 
 # Confirm port 9111 is active inside the control-plane node
-kubectl exec -n envoy-ingress <nodeport-proxy-pod> -- ss -tlnp | grep 9111
+kubectl exec -n envoy-ingress \
+  $(kubectl get pod -n envoy-ingress -l app=nodeport-proxy -o jsonpath='{.items[0].metadata.name}') \
+  -- ss -tlnp | grep 9111
 ```
 
-**Fix:** Ensure `infrastructure/controllers/envoy-gateway.yaml` includes port `32111` in `allow-proxy-http-ingress`:
+**Fix:** Ensure `apps/base/iperf3/networkpolicies.yaml` includes `allow-nginx-ingress` with an open-port pattern:
 
 ```yaml
   ingress:
     - ports:
-        - port: 10080
         - port: 32111
+          protocol: TCP
 ```
 
 After merging the fix, force Flux to reconcile:
 
 ```bash
-flux reconcile kustomization infrastructure-controllers -n flux-system
+flux reconcile kustomization apps -n flux-system
 ```
 
 ### Issue — Pod in ImagePullBackOff
@@ -1918,34 +1896,6 @@ kubectl describe pod -n iperf3 <pod-name> | grep -A 5 "Events:"
 # Look for: failed to resolve reference "docker.io/networkstatic/iperf3:<tag>": not found
 ```
 
-### Issue — "control socket has closed unexpectedly"
-
-**Symptom:** `iperf3 -P 20` connects all 20 streams but then exits with `control socket has closed unexpectedly`.
-
-**Cause:** This is the circuit breaker working as designed. The `BackendTrafficPolicy` in `apps/base/iperf3/traffic-policy.yaml` sets `maxConnections: 10`. When 20 parallel streams are opened, Envoy allows 10 upstream connections and overflows the remaining 10. Terminating the excess connections while data is in flight causes iperf3 to lose its control channel.
-
-**Confirm the circuit breaker activated:**
-
-```bash
-PROXY_POD=$(kubectl get pods -n envoy-gateway-system \
-  -l app.kubernetes.io/component=proxy \
-  -o jsonpath='{.items[0].metadata.name}')
-
-kubectl port-forward -n envoy-gateway-system "$PROXY_POD" 19000:19000 &
-sleep 1
-
-curl -s localhost:19000/stats \
-  | grep "tcproute/iperf3/iperf3/rule/-1.upstream_cx_overflow"
-
-kill %1
-# Expected: upstream_cx_overflow > 0 after a -P 20 test
-```
-
-To run a test that stays within the circuit-breaker threshold, keep parallel streams at or below 10:
-
-```bash
-iperf3 -4 -c localhost -p 32111 -P 10 -t 30
-```
 
 ### Issue — nginx stream block not forwarding TCP
 
@@ -1994,18 +1944,9 @@ docker port flux-kind-control-plane 9111
 
 ## 27. Contour
 
-Contour is a second, independent ingress stack that runs alongside Envoy Gateway. It acts as a Kubernetes-native control plane: it watches `HTTPProxy` CRs and standard `Ingress` resources, translates them into Envoy xDS configuration, and streams that configuration via gRPC to its own Envoy DaemonSet. The Contour Envoy DaemonSet is the data plane; it receives xDS from Contour and routes live traffic to backend services.
+Contour is the sole HTTP ingress controller. It acts as a Kubernetes-native control plane: it watches `HTTPProxy` CRs, translates them into Envoy xDS configuration, and streams that configuration via gRPC to its Envoy DaemonSet. The Contour Envoy DaemonSet is the data plane; it receives xDS from Contour and routes live traffic to backend services.
 
-This creates two independent ingress stacks in the same cluster, both using Envoy as the data plane but programmed by separate controllers using different APIs:
-
-| Stack | Control plane | API | Data plane |
-|---|---|---|---|
-| Envoy Gateway | Envoy Gateway controller | Gateway API (`HTTPRoute`, `TCPRoute`) | Auto-provisioned Envoy pods in `envoy-gateway-system` |
-| Contour | Contour controller | `HTTPProxy` CRD (`projectcontour.io/v1`) | Envoy DaemonSet in `contour` |
-
-Traffic from `localhost:8080` reaches both stacks through the nginx `nodeport-proxy` in `envoy-ingress`, which routes by hostname:
-- `httpbin-contour.local` → `contour-contour-envoy.contour.svc.cluster.local:80`
-- All other hostnames → `envoy-proxy.envoy-gateway-system.svc.cluster.local`
+Traffic from `localhost:8080` reaches Contour through the nginx `nodeport-proxy` in `envoy-ingress`. The nginx `default_server` catch-all block forwards all HTTP traffic to `contour-contour-envoy.contour.svc.cluster.local:80`. Contour then routes by the `Host` header using the configured `HTTPProxy` resources. See [§9 HTTP Ingress — Contour](#9-http-ingress--contour) for status and connectivity commands.
 
 ### Status
 
@@ -2029,11 +1970,9 @@ kubectl describe httpproxy httpbin -n demo
 ### End-to-End Connectivity Test
 
 ```bash
-# Route through Contour stack
 curl -s -o /dev/null -w "%{http_code}\n" -H "Host: httpbin-contour.local" http://localhost:8080/get
 # Expected: 200
 
-# Confirm Envoy Gateway routes are unaffected
 curl -s -o /dev/null -w "%{http_code}\n" -H "Host: grafana.local" http://localhost:8080/
 # Expected: 302
 
@@ -2041,7 +1980,7 @@ curl -s -o /dev/null -w "%{http_code}\n" -H "Host: prometheus.local" http://loca
 # Expected: 200
 ```
 
-Add `127.0.0.1 httpbin-contour.local` to `/etc/hosts` to use the hostname directly without a `-H` flag.
+Add `127.0.0.1 httpbin-contour.local grafana.local prometheus.local` to `/etc/hosts` to use hostnames directly without a `-H` flag.
 
 ### Contour Logs
 
@@ -2076,7 +2015,7 @@ spec:
 
 Then add `127.0.0.1 my-app-contour.local` to `/etc/hosts`.
 
-If the new hostname should route through Contour (not Envoy Gateway), add a corresponding `server {}` block to the nginx ConfigMap in `apps/overlays/kind/istio/nodeport-proxy.yaml` before the `listen 8888 default_server` catch-all block. See the `httpbin-contour.local` block as an example.
+Because the nginx catch-all `default_server` block forwards all HTTP traffic to Contour, no nginx ConfigMap change is required when adding new `HTTPProxy` routes. Simply create the `HTTPProxy` CR and add the hostname to `/etc/hosts`.
 
 ### Issue — HelmRelease Fails with "no artifact available for HelmRepository source 'projectcontour'"
 
@@ -2142,21 +2081,35 @@ podSelector:
     app.kubernetes.io/component: envoy
 ```
 
-### Issue — All Routes Return 504 After Contour Server Block Added to nginx
+### Issue — All Routes Return 504
 
-**Symptom:** After adding a `server_name httpbin-contour.local` block to the nginx ConfigMap, requests to `grafana.local` and `prometheus.local` also return `504`. Nginx logs show the `httpbin-contour.local` server block handling requests for those hostnames.
+**Symptom:** Requests to `grafana.local`, `prometheus.local`, and `httpbin-contour.local` all return `504`.
 
-**Cause:** The Contour server block was defined first in the `http {}` context, and the catch-all block used `listen 8888;` without `default_server`. Because `server_name _;` is not a true wildcard, nginx routes all unmatched host headers to the first defined block. See [§21 — nginx Routes All Requests to the Wrong Backend](#nginx-routes-all-requests-to-the-wrong-backend-missing-default_server) for a full explanation.
+**Cause:** The nginx `default_server` catch-all block is not forwarding to the Contour Envoy Service, or the Contour Envoy DaemonSet pods are not ready.
 
-**Fix:** Ensure the Envoy Gateway catch-all block uses `listen 8888 default_server;`:
+**Diagnose:**
+
+```bash
+# Confirm the Contour Envoy Service name
+kubectl get svc -n contour
+# Expected: contour-contour-envoy
+
+# Check nginx ConfigMap proxy_pass target
+kubectl get configmap -n envoy-ingress nodeport-proxy-conf -o yaml | grep contour_upstream
+
+# Contour Envoy pod health
+kubectl get pods -n contour -l app.kubernetes.io/component=envoy
+```
+
+**Fix:** Ensure the nginx catch-all block uses `listen 8888 default_server;` and proxies to `contour-contour-envoy.contour.svc.cluster.local:80`:
 
 ```nginx
 server {
     listen 8888 default_server;
     server_name _;
     location / {
-        set $egw_upstream http://envoy-proxy.envoy-gateway-system.svc.cluster.local;
-        proxy_pass $egw_upstream;
+        set $contour_upstream http://contour-contour-envoy.contour.svc.cluster.local:80;
+        proxy_pass $contour_upstream;
         # ...
     }
 }
