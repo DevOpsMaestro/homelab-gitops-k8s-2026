@@ -44,7 +44,7 @@ BOOTSTRAP_IMAGES := \
         check-tools status watch validate check-crd-count \
         sops-setup sops-load-key \
         test-policies test-falco test-cluster test-kubescape \
-        test-iperf3 test-iperf3-circuit-breaker test-iperf3-overflow
+        test-iperf3
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -322,7 +322,7 @@ test-cluster: ## Smoke-test a running cluster — Flux, Grafana, Prometheus, Lok
 
 # ── iperf3 load tests ─────────────────────────────────────────────────────────
 
-test-iperf3: ## Baseline bandwidth test — single stream, 30 s, through Envoy TCPRoute
+test-iperf3: ## Baseline bandwidth test — single stream, 30 s, through nginx stream proxy
 	@kubectl cluster-info >/dev/null 2>&1 \
 	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }
 	@kubectl get pods -n iperf3 -l app=iperf3-server --no-headers 2>/dev/null \
@@ -331,56 +331,9 @@ test-iperf3: ## Baseline bandwidth test — single stream, 30 s, through Envoy T
 	@command -v iperf3 >/dev/null 2>&1 \
 	  || { printf '\n  ✗ iperf3 not found — install: brew install iperf3\n\n'; exit 1; }
 	@printf '\n==> iperf3 baseline bandwidth test (single stream, 30 s)\n'
-	@printf '    Path: localhost:32111 → nginx stream → Envoy TCPRoute → iperf3 pod\n\n'
+	@printf '    Path: localhost:32111 → nginx stream{} → iperf3 Service :32111 → iperf3 pod\n\n'
 	@iperf3 -4 -c localhost -p 32111 -t 30
 	@printf '\n✓ Baseline test complete\n\n'
-
-test-iperf3-circuit-breaker: ## Circuit-breaker test — 20 parallel streams; passes when upstream_cx_overflow > 0
-	@kubectl cluster-info >/dev/null 2>&1 \
-	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }
-	@kubectl get pods -n iperf3 -l app=iperf3-server --no-headers 2>/dev/null \
-	  | grep -q Running \
-	  || { printf '\n  ✗ iperf3 server not running — check: kubectl get pods -n iperf3\n\n'; exit 1; }
-	@command -v iperf3 >/dev/null 2>&1 \
-	  || { printf '\n  ✗ iperf3 not found — install: brew install iperf3\n\n'; exit 1; }
-	@printf '\n==> Circuit-breaker test: 20 parallel streams (maxConnections: 10)\n'
-	@printf '    iperf3 will report "control socket has closed unexpectedly" — that is expected.\n\n'
-	@iperf3 -4 -c localhost -p 32111 -P 20 -t 30 2>&1 || true
-	@printf '\n==> Checking Envoy upstream_cx_overflow counter...\n'
-	@PROXY_POD=$$(kubectl get pods -n envoy-gateway-system \
-	    -l app.kubernetes.io/component=proxy \
-	    -o jsonpath='{.items[0].metadata.name}'); \
-	kubectl port-forward -n envoy-gateway-system "$$PROXY_POD" 19000:19000 >/dev/null 2>&1 & PF_PID=$$!; \
-	TRIES=0; until nc -z localhost 19000 2>/dev/null || [ $$TRIES -ge 10 ]; do \
-	  sleep 1; TRIES=$$((TRIES+1)); \
-	done; \
-	OVERFLOW=$$(curl -s --max-time 5 localhost:19000/stats \
-	  | grep 'tcproute/iperf3/iperf3/rule/-1\.upstream_cx_overflow:' \
-	  | awk '{print $$2}'); \
-	kill $$PF_PID 2>/dev/null; wait $$PF_PID 2>/dev/null; \
-	printf '    upstream_cx_overflow: %s\n\n' "$${OVERFLOW:-unreadable}"; \
-	if [ -n "$$OVERFLOW" ] && [ "$$OVERFLOW" -gt 0 ]; then \
-	  printf '✓ Circuit-breaker test passed — Envoy shed %s connection(s)\n\n' "$$OVERFLOW"; \
-	else \
-	  printf '✗ Circuit-breaker did not fire — overflow counter is 0 or unreadable\n\n'; exit 1; \
-	fi
-
-test-iperf3-overflow: ## Show live Envoy circuit-breaker stats for the iperf3 cluster (read-only)
-	@kubectl cluster-info >/dev/null 2>&1 \
-	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }
-	@printf '\n==> Envoy circuit-breaker stats — tcproute/iperf3\n\n'
-	@PROXY_POD=$$(kubectl get pods -n envoy-gateway-system \
-	    -l app.kubernetes.io/component=proxy \
-	    -o jsonpath='{.items[0].metadata.name}'); \
-	kubectl port-forward -n envoy-gateway-system "$$PROXY_POD" 19000:19000 >/dev/null 2>&1 & PF_PID=$$!; \
-	TRIES=0; until nc -z localhost 19000 2>/dev/null || [ $$TRIES -ge 10 ]; do \
-	  sleep 1; TRIES=$$((TRIES+1)); \
-	done; \
-	curl -s --max-time 5 localhost:19000/stats \
-	  | grep 'tcproute/iperf3' \
-	  | grep -E 'upstream_cx_overflow|upstream_cx_total|upstream_cx_active|upstream_cx_destroy'; \
-	kill $$PF_PID 2>/dev/null; wait $$PF_PID 2>/dev/null
-	@printf '\n'
 
 # ── iperf3 feature flag ───────────────────────────────────────────────────────
 
