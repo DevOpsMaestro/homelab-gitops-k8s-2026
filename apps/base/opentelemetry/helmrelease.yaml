@@ -50,7 +50,7 @@ spec:
 
     image:
       repository: otel/opentelemetry-collector-contrib
-      tag: "0.153.0"
+      tag: "0.154.0"
       digest: "sha256:93aad750175cbf1a973ae1c5886c3371f4d800f61be25cdd26870b8441ffe9fa"
 
     podLabels:
