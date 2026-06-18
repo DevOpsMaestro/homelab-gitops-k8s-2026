@@ -57,6 +57,17 @@ spec:
       # 400 "missing account id" error on every scan cycle because no account
       # or accessKey is configured. Enable offline mode to suppress this.
       kubescapeOffline: enable
+    # Known chart issue (kubescape-operator 1.40.x): the chart mounts an emptyDir
+    # volume with subPath: config.json at /home/nonroot/.kubescape/config.json.
+    # Kubernetes creates the subPath entry as a directory before any container
+    # starts, so the kubescape CLI binary finds a directory at that path instead
+    # of a writable file. This produces the following error on every scan cycle:
+    #   open /home/nonroot/.kubescape/config.json: is a directory
+    # The error is benign. It affects only local account-state persistence, which
+    # has no purpose in offline mode (kubescapeOffline: enable). Scan results
+    # flow through the operator → storage → prometheus-exporter path, which does
+    # not touch this file. Resolution: upgrade to a chart version that corrects
+    # the volume configuration. Renovate will open a PR when one is available.
     configurations:
       prometheusAnnotations: disable
 ---
