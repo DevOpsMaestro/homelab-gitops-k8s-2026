@@ -39,6 +39,17 @@ spec:
       enabled: true
       alertmanagerSpec:
         logLevel: warn
+        # Disable the Alertmanager gossip/clustering port (9094).
+        # The alertmanager-operated headless service and the ClusterIP service
+        # both map to the same pod IP on port 9094. Istio sees two services
+        # claiming the same IP:port and cannot install separate outbound TCP
+        # listeners for each, logging:
+        #   pilot_conflict_outbound_listener_tcp_over_current_tcp 10.x.x.x_9094
+        # Passing an empty cluster.listen-address disables the gossip listener
+        # entirely. Clustering is unused with a single replica anyway.
+        additionalArgs:
+          - name: cluster.listen-address
+            value: ""
         resources:
           requests:
             cpu: 50m
