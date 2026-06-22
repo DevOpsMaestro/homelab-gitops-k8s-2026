@@ -24,7 +24,7 @@ spec:
     spec:
       chart: kube-prometheus-stack
       # Original pinned 56.7.0 (early 2024). Chart is now in the 70s.
-      version: "86.x"
+      version: "87.x"
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
