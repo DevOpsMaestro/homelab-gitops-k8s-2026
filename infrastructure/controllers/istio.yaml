@@ -22,7 +22,8 @@ spec:
     ignore:
       # istiod writes its CA bundle into this webhook at runtime. Excluding the
       # entire resource prevents the permanent correcting-drift loop.
-      - target:
+      - paths: []
+        target:
           kind: ValidatingWebhookConfiguration
           name: istiod-default-validator
   dependsOn:
@@ -61,10 +62,12 @@ spec:
       # istiod writes its CA bundle into all webhook configurations it owns at
       # runtime. Excluding these resources entirely from drift detection prevents
       # the permanent correcting-drift loop caused by the caBundle field.
-      - target:
+      - paths: []
+        target:
           kind: ValidatingWebhookConfiguration
           name: istio-validator-istio-system
-      - target:
+      - paths: []
+        target:
           kind: MutatingWebhookConfiguration
           name: istio-sidecar-injector
   targetNamespace: istio-system
