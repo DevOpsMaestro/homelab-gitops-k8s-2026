@@ -17,6 +17,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   dependsOn:
     - name: cilium
       namespace: flux-system
@@ -47,6 +49,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: istio-system
   dependsOn:
     - name: istio-base

@@ -13,6 +13,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   chart:
     spec:
       chart: kubescape-operator

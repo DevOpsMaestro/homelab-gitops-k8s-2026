@@ -17,6 +17,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: tetragon
   dependsOn:
     - name: cilium

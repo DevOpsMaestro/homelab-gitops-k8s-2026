@@ -26,6 +26,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: metrics-server
   dependsOn:
     - name: cilium

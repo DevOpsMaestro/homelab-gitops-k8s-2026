@@ -21,6 +21,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: contour
   dependsOn:
     - name: cilium

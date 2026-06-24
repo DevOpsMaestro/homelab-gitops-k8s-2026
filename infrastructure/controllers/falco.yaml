@@ -29,6 +29,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: falco
   dependsOn:
     - name: cilium

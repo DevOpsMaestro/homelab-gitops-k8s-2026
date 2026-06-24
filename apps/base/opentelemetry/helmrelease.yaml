@@ -22,6 +22,8 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
+  driftDetection:
+    mode: enabled
   targetNamespace: observability
   dependsOn:
     - name: kube-prometheus-stack
