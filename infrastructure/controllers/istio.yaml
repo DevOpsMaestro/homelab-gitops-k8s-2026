@@ -19,6 +19,15 @@ spec:
   interval: 1h
   driftDetection:
     mode: enabled
+    ignore:
+      # istiod writes its CA bundle into this webhook at runtime. Flux must not
+      # treat that field as drift or it will overwrite the bundle every cycle and
+      # keep the HelmRelease in a permanent correcting-drift state.
+      - paths:
+          - /webhooks/0/clientConfig/caBundle
+        target:
+          kind: ValidatingWebhookConfiguration
+          name: istiod-default-validator
   dependsOn:
     - name: cilium
       namespace: flux-system
