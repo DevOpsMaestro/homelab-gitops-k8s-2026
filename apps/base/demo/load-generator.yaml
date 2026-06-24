@@ -23,7 +23,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: curl
-          image: curlimages/curl:8.20.0
+          image: curlimages/curl:8.21.0
           # Send a mix of GET and POST requests every 5 seconds so the Istio
           # mesh/service/workload dashboards have meaningful HTTP traffic to show.
           command:
