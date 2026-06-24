@@ -157,6 +157,33 @@ spec:
       ports:
         - port: 9090
 ---
+# The Kubernetes API server calls the Prometheus Operator admission webhook on
+# port 443 when creating or updating PrometheusRule and AlertmanagerConfig
+# resources. The API server has no pod or namespace label to select against,
+# so no `from` selector is used — any source reaching port 443 is allowed.
+# Without this rule the default-deny policy blocks the webhook, causing each
+# admission call to time out at 30 s (failurePolicy: Ignore). With 35+
+# PrometheusRules in the inventory, that adds 35 min to every Flux drift
+# detection pass, preventing observedGeneration from being set and blocking
+# all downstream HelmReleases that depend on kube-prometheus-stack.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: prometheus-operator-allow-webhook-ingress
+  namespace: observability
+spec:
+  podSelector:
+    matchLabels:
+      app: kube-prometheus-stack-operator
+  policyTypes:
+    - Ingress
+  ingress:
+    - ports:
+        # Service port 443 → container port 10250 (named "https").
+        # NetworkPolicy is enforced at the pod level, so the container port
+        # (10250) must be used here, not the service-level port (443).
+        - port: 10250
+---
 # Falcosidekick (in the falco namespace) ships structured alert JSON to Loki on
 # port 3100. The default-deny above blocks all cross-namespace ingress, so this
 # explicit rule is required for alert delivery to work.
