@@ -142,6 +142,13 @@ spec:
     # (configReloaderCpu/Memory set both requests and limits for that container).
     prometheusOperator:
       logLevel: warn
+      # Flux reconciles the monitoring-rules Kustomization every hour, which
+      # applies PrometheusRule resources and triggers these admission webhooks.
+      # The default 10-second timeout is too short when the operator is busy
+      # reconciling; increasing it to 30s (the Kubernetes maximum) eliminates
+      # the recurring "context deadline exceeded" errors in kube-apiserver logs.
+      admissionWebhooks:
+        timeoutSeconds: 30
       resources:
         requests:
           cpu: 100m
