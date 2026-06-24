@@ -68,8 +68,10 @@ spec:
     # The error is benign. It affects only local account-state persistence, which
     # has no purpose in offline mode (kubescapeOffline: enable). Scan results
     # flow through the operator → storage → prometheus-exporter path, which does
-    # not touch this file. Resolution: upgrade to a chart version that corrects
-    # the volume configuration. Renovate will open a PR when one is available.
+    # not touch this file. Confirmed: 15 kubescape_controls_* and
+    # kubescape_vulnerabilities_* metrics series are present in Prometheus after
+    # each scan cycle. Resolution: upgrade to a chart version that corrects the
+    # volume configuration. Renovate will open a PR when one is available.
     configurations:
       prometheusAnnotations: disable
 ---

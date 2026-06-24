@@ -195,6 +195,11 @@ spec:
     prometheus:
       prometheusSpec:
         logLevel: warn
+        # Accept remote_write pushes on /api/v1/write. Required for Tempo's
+        # metrics generator to deliver RED metrics (rate/error/duration) derived
+        # from traces. Without this flag Prometheus returns 404 on the endpoint
+        # and Tempo logs "remote write failed".
+        enableRemoteWriteReceiver: true
         # NOTE: no volumeClaimTemplate — storage is ephemeral (emptyDir).
         # Metrics are lost on pod restart. Acceptable for a KinD dev cluster;
         # add a volumeClaimTemplate here for any persistent deployment.
