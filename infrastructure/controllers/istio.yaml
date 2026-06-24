@@ -18,15 +18,12 @@ metadata:
 spec:
   interval: 1h
   driftDetection:
-    mode: enabled
-    ignore:
-      # istiod writes its CA bundle into this webhook at runtime. Excluding the
-      # entire resource prevents the permanent correcting-drift loop.
-      - paths: []
-        target:
-          group: admissionregistration.k8s.io
-          kind: ValidatingWebhookConfiguration
-          name: istiod-default-validator
+    # warn instead of enabled: istiod writes its CA bundle into the
+    # ValidatingWebhookConfiguration at runtime. The ignore rule target
+    # matcher does not resolve admissionregistration.k8s.io resources
+    # correctly in helm-controller v1.5.x, causing a permanent correction
+    # loop. warn mode retains drift visibility without attempting correction.
+    mode: warn
   dependsOn:
     - name: cilium
       namespace: flux-system
@@ -58,21 +55,8 @@ metadata:
 spec:
   interval: 1h
   driftDetection:
-    mode: enabled
-    ignore:
-      # istiod writes its CA bundle into all webhook configurations it owns at
-      # runtime. Excluding these resources entirely from drift detection prevents
-      # the permanent correcting-drift loop caused by the caBundle field.
-      - paths: []
-        target:
-          group: admissionregistration.k8s.io
-          kind: ValidatingWebhookConfiguration
-          name: istio-validator-istio-system
-      - paths: []
-        target:
-          group: admissionregistration.k8s.io
-          kind: MutatingWebhookConfiguration
-          name: istio-sidecar-injector
+    # warn instead of enabled: same reason as istio-base above.
+    mode: warn
   targetNamespace: istio-system
   dependsOn:
     - name: istio-base
