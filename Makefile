@@ -43,6 +43,7 @@ BOOTSTRAP_IMAGES := \
         pull-images load-images cache-running \
         check-tools status watch validate check-crd-count \
         sops-setup sops-load-key \
+        etcd-status etcd-defrag \
         test-policies test-istio test-kyverno test-falco test-cluster test-kubescape test-contour \
         test-iperf3
 
@@ -178,6 +179,79 @@ check-crd-count: ## Warn if installed CRD count approaches the etcd slow-list th
 	  printf "warnings. Review Helm chart CRD installations; consider disabling unused capabilities.\n"; \
 	  exit 1; \
 	fi
+
+# ── etcd maintenance ─────────────────────────────────────────────────────────
+
+ETCD_POD   := etcd-flux-kind-control-plane
+ETCD_NS    := kube-system
+ETCD_FLAGS := --endpoints=localhost:2379 \
+              --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+              --cert=/etc/kubernetes/pki/etcd/server.crt \
+              --key=/etc/kubernetes/pki/etcd/server.key
+
+# Python scripts are defined as Make variables and exported to the shell
+# environment. Recipe lines then reference them as $$VARNAME (Make expands $$
+# to a literal $, the shell then expands the env var). This is the idiomatic
+# way to embed multi-line scripts in a Makefile without tab/indentation fights.
+define _ETCD_PY_STATUS
+import sys, json
+data = json.load(sys.stdin)
+for ep in data:
+    s     = ep.get("Status", {})
+    db    = s.get("dbSize", 0)
+    inuse = s.get("dbSizeInUse", 0)
+    quota = s.get("dbSizeAlarmThreshold", 2 * 1024 * 1024 * 1024)
+    frag  = (db - inuse) / db * 100 if db else 0
+    pct   = db / quota * 100 if quota else 0
+    print("  dbSize        : %d MB  (%.1f%% of %d MB quota)" % (db >> 20, pct, quota >> 20))
+    print("  inUse         : %d MB" % (inuse >> 20))
+    print("  fragmentation : %.1f%%" % frag)
+    if frag > 30:
+        print("  WARNING: fragmentation exceeds 30% -- run: make etcd-defrag")
+    else:
+        print("  OK: fragmentation is within acceptable range")
+endef
+export _ETCD_PY_STATUS
+
+define _ETCD_PY_FRAG_LINE
+import sys, json
+data = json.load(sys.stdin)
+for ep in data:
+    s     = ep.get("Status", {})
+    db    = s.get("dbSize", 0)
+    inuse = s.get("dbSizeInUse", 0)
+    frag  = (db - inuse) / db * 100 if db else 0
+    print("  dbSize=%dMB  inUse=%dMB  fragmentation=%.1f%%" % (db >> 20, inuse >> 20, frag))
+endef
+export _ETCD_PY_FRAG_LINE
+
+etcd-status: ## Show etcd database size, in-use bytes, and fragmentation percentage
+	@kubectl cluster-info >/dev/null 2>&1 \
+	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }
+	@printf '\n==> etcd database status\n'
+	@kubectl exec -n $(ETCD_NS) $(ETCD_POD) -- \
+	  /usr/local/bin/etcdctl $(ETCD_FLAGS) endpoint status --write-out=json 2>/dev/null \
+	  | python3 -c "$$_ETCD_PY_STATUS"
+	@printf '\n'
+
+etcd-defrag: ## Defragment the etcd database to reclaim fragmented space
+	@kubectl cluster-info >/dev/null 2>&1 \
+	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }
+	@printf '\n==> etcd defragmentation\n'
+	@printf 'Before:\n'
+	@kubectl exec -n $(ETCD_NS) $(ETCD_POD) -- \
+	  /usr/local/bin/etcdctl $(ETCD_FLAGS) endpoint status --write-out=json 2>/dev/null \
+	  | python3 -c "$$_ETCD_PY_FRAG_LINE"
+	@printf '\nRunning defrag (this briefly pauses etcd writes)...\n'
+	@kubectl exec -n $(ETCD_NS) $(ETCD_POD) -- \
+	  /usr/local/bin/etcdctl $(ETCD_FLAGS) defrag 2>/dev/null \
+	  && printf '✓ Defrag complete\n' \
+	  || { printf '✗ Defrag failed\n'; exit 1; }
+	@printf '\nAfter:\n'
+	@kubectl exec -n $(ETCD_NS) $(ETCD_POD) -- \
+	  /usr/local/bin/etcdctl $(ETCD_FLAGS) endpoint status --write-out=json 2>/dev/null \
+	  | python3 -c "$$_ETCD_PY_FRAG_LINE"
+	@printf '\n'
 
 watch: ## Watch Flux reconcile every 6 s (Ctrl-C to stop)
 	watch -n 6 "flux get all -A"

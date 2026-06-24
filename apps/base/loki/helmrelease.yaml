@@ -98,6 +98,14 @@ spec:
 
     singleBinary:
       replicas: 1
+      podAnnotations:
+        # The loki-sc-rules init container (kiwigrid/k8s-sidecar) triggers a
+        # FATAL Trivy scan error during layer analysis: the scanner cannot create
+        # temp files inside a nested subdirectory of /tmp for this specific image.
+        # Skipping this container eliminates the error; the main loki container
+        # is still scanned. The sidecar only synchronizes Grafana rule ConfigMaps
+        # into the Loki filesystem; it carries no application secrets.
+        trivy-operator.aquasecurity.github.io/skip-containers: loki-sc-rules
       persistence:
         storageClass: openebs-hostpath
         size: 5Gi
