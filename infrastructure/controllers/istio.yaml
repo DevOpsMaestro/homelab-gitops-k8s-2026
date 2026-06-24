@@ -24,6 +24,7 @@ spec:
       # entire resource prevents the permanent correcting-drift loop.
       - paths: []
         target:
+          group: admissionregistration.k8s.io
           kind: ValidatingWebhookConfiguration
           name: istiod-default-validator
   dependsOn:
@@ -64,10 +65,12 @@ spec:
       # the permanent correcting-drift loop caused by the caBundle field.
       - paths: []
         target:
+          group: admissionregistration.k8s.io
           kind: ValidatingWebhookConfiguration
           name: istio-validator-istio-system
       - paths: []
         target:
+          group: admissionregistration.k8s.io
           kind: MutatingWebhookConfiguration
           name: istio-sidecar-injector
   targetNamespace: istio-system
