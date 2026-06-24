@@ -7,7 +7,12 @@ metadata:
 spec:
   interval: 1h
   driftDetection:
-    mode: enabled
+    # warn instead of enabled: cert-manager injects its CA bundle into
+    # the observability-kube-prometh-admission webhook configurations at
+    # runtime. With mode: enabled, Flux corrects the caBundle → cert-manager
+    # re-injects → permanent correction loop, identical to the istiod case
+    # (fixed in PR #128). warn retains drift visibility without correcting.
+    mode: warn
   targetNamespace: observability
   dependsOn:
     - name: openebs
