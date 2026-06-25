@@ -20,7 +20,7 @@ fi
 # ── Step 0: Pre-flight — verify all Helm chart sources are reachable ──────────
 # Runs before any destructive work so a bad URL or network outage fails fast
 # instead of being discovered after the cluster is already up and Flux is running.
-printf "\n[0/9] Pre-flight: verifying Helm chart sources\n"
+printf "\n[0/10] Pre-flight: verifying Helm chart sources\n"
 
 _check_http_repo() {
   local name=$1 url=$2
@@ -99,7 +99,7 @@ if [[ -n "$CILIUM_ENVOY_IMAGE" ]]; then
 fi
 
 # ── Step 1: KinD cluster ──────────────────────────────────────────────────────
-printf "\n[1/9] Creating KinD cluster: $CLUSTER_NAME\n"
+printf "\n[1/10] Creating KinD cluster: $CLUSTER_NAME\n"
 # disableDefaultCNI: true — prevents kindnet from racing with Cilium.
 # kubeProxyMode: none    — Cilium's eBPF dataplane replaces kube-proxy entirely.
 # Both flags are REQUIRED when using Cilium's kubeProxyReplacement: true.
@@ -184,7 +184,7 @@ EOF
 # tries to import into the node's containerd (which is always "$DOCKER_PLATFORM"),
 # containerd looks for the amd64-specific digest and gets "content digest not
 # found" if those layers weren't pulled.
-printf "\n[2/9] Pre-pulling Cilium and Istio images and loading into KinD nodes\n"
+printf "\n[2/10] Pre-pulling Cilium and Istio images and loading into KinD nodes\n"
 
 # Istio gateway image — pre-loaded so the ingressgateway pod never hits Docker Hub
 # from inside the cluster (which has no registry credentials).
@@ -225,7 +225,7 @@ printf "  ✓ All Cilium and Istio images loaded into cluster nodes\n"
 # permanently and uses additionalScrapeConfigs in kube-prometheus-stack instead,
 # avoiding a circular dependency (ServiceMonitor CRD lives in apps layer which
 # depends on this infrastructure layer).
-printf "\n[3/9] Pre-installing Cilium v${CILIUM_VERSION} via Helm\n"
+printf "\n[3/10] Pre-installing Cilium v${CILIUM_VERSION} via Helm\n"
 
 if ! command -v helm &> /dev/null; then
   printf "  helm not found — installing via brew\n"
@@ -278,20 +278,20 @@ printf "  ✓ CoreDNS is ready — DNS resolution available\n"
 
 # ── Step 4: Flux CLI ──────────────────────────────────────────────────────────
 if ! command -v flux &> /dev/null; then
-  printf "\n[4/9] Installing Flux CLI...\n"
+  printf "\n[4/10] Installing Flux CLI...\n"
   brew install fluxcd/tap/flux
 else
-  printf "\n[4/9] Flux CLI already installed\n"
+  printf "\n[4/10] Flux CLI already installed\n"
 fi
 
 # ── Step 5: GitHub CLI ────────────────────────────────────────────────────────
 if ! command -v gh &> /dev/null; then
-  printf "[5/9] Installing GitHub CLI...\n"
+  printf "[5/10] Installing GitHub CLI...\n"
   brew install gh
 fi
 
 # ── Step 6: GitHub auth ───────────────────────────────────────────────────────
-printf "[6/9] Authenticating GitHub CLI...\n"
+printf "[6/10] Authenticating GitHub CLI...\n"
 gh auth status 2>/dev/null || gh auth login
 
 # ── Step 7: Flux bootstrap ────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ fi
 # default SSH (port 22), which is blocked in many corporate and home networks.
 export GITHUB_TOKEN="$(gh auth token)"
 
-printf "[7/9] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
+printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
 flux bootstrap github \
   --owner="$GITHUB_USER" \
   --repository="$REPO_NAME" \
@@ -338,14 +338,14 @@ flux bootstrap github \
 # The secret is recreated on every bootstrap (idempotent via --dry-run=client).
 AGE_KEY_FILE="${HOME}/.config/sops/age/keys.txt"
 if [ -f "${AGE_KEY_FILE}" ]; then
-  printf "\n[8/9] Loading SOPS age key into cluster\n"
+  printf "\n[8/10] Loading SOPS age key into cluster\n"
   cat "${AGE_KEY_FILE}" | kubectl create secret generic sops-age \
     --namespace flux-system \
     --from-file=age.agekey=/dev/stdin \
     --dry-run=client -o yaml | kubectl apply -f -
   printf "  ✓ sops-age secret created in flux-system\n"
 else
-  printf "\n[8/9] SOPS age key not found at %s — skipping\n" "${AGE_KEY_FILE}"
+  printf "\n[8/10] SOPS age key not found at %s — skipping\n" "${AGE_KEY_FILE}"
   printf "       Run 'make sops-setup' then 'make sops-load-key' to enable SOPS decryption\n"
 fi
 
@@ -359,12 +359,28 @@ fi
 #
 # The secret is not committed to git (it would be visible in the public repo).
 # This step recreates it on every bootstrap so a fresh cluster always has it.
-printf "\n[9/9] Creating github-token secret for Flux notification provider\n"
+printf "\n[9/10] Creating github-token secret for Flux notification provider\n"
 kubectl create secret generic github-token \
   --namespace flux-system \
   --from-literal=token="${GITHUB_TOKEN}" \
   --dry-run=client -o yaml | kubectl apply -f -
 printf "  ✓ github-token secret created in flux-system\n"
+
+# ── Step 10: Grafana secret_key ───────────────────────────────────────────────
+# Without a stable secret_key, Grafana invalidates all sessions and
+# re-encrypts datasource passwords on every pod restart. The key must exist
+# in the observability namespace before the Grafana HelmRelease installs,
+# otherwise the pod fails to start (the envValueFrom reference is unresolvable).
+# Pre-creating the namespace here lets Flux adopt it on first reconciliation.
+printf "\n[10/10] Creating Grafana secret_key in observability namespace\n"
+kubectl create namespace observability \
+  --dry-run=client -o yaml | kubectl apply -f -
+GRAFANA_KEY=$(openssl rand -base64 32)
+kubectl create secret generic grafana-secret-key \
+  --namespace observability \
+  --from-literal=secret-key="${GRAFANA_KEY}" \
+  --dry-run=client -o yaml | kubectl apply -f -
+printf "  ✓ grafana-secret-key created in observability\n"
 
 printf "\n✅ Setup complete.\n"
 printf "   Cilium is live and Flux is now managing it via infrastructure/controllers/cilium.yaml\n"
