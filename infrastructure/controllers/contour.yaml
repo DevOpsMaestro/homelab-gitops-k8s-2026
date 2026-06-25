@@ -67,6 +67,13 @@ spec:
         nodePorts:
           http: 30082
           https: 30444
+      podAnnotations:
+        # The envoy container (docker.io/envoyproxy/envoy:v1.35.x) triggers a
+        # FATAL Trivy scan error during image layer analysis: the scanner cannot
+        # create temp files inside a nested subdirectory of /tmp for this image.
+        # Skipping this container eliminates the scan failure. The init-container
+        # (envoy-initconfig) and shutdown manager are still scanned.
+        trivy-operator.aquasecurity.github.io/skip-containers: envoy
       resources:
         requests:
           cpu: 100m
