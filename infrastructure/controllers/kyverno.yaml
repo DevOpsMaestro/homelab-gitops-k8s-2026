@@ -48,6 +48,12 @@ spec:
       replicas: 1
       extraArgs:
         v: "1"
+      podAnnotations:
+        # The kyverno container (ghcr.io/kyverno/kyverno) triggers a FATAL Trivy
+        # scan error during image layer analysis: the scanner fails to create temp
+        # files for this image. Skipping it eliminates the FATAL scan failure.
+        # The background, cleanup, and reports controllers scan without error.
+        trivy-operator.aquasecurity.github.io/skip-containers: kyverno
       resources:
         requests:
           cpu: 100m

@@ -43,6 +43,15 @@ spec:
       valuesKey: admin-password
       targetPath: adminPassword
   values:
+    # Without a stable secret_key, Grafana invalidates all sessions and
+    # re-encrypts stored datasource passwords on every pod restart. The key
+    # is stored in a cluster Secret (not in git) so it survives rebuilds.
+    # Create it once: make grafana-secret  (idempotent, run after bootstrap)
+    envValueFrom:
+      GF_SECURITY_SECRET_KEY:
+        secretKeyRef:
+          name: grafana-secret-key
+          key: secret-key
     resources:
       requests:
         cpu: 50m

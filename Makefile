@@ -42,7 +42,7 @@ BOOTSTRAP_IMAGES := \
         bootstrap destroy branch \
         pull-images load-images cache-running \
         check-tools status watch validate check-crd-count \
-        sops-setup sops-load-key \
+        sops-setup sops-load-key grafana-secret \
         etcd-status etcd-defrag \
         test-policies test-istio test-kyverno test-falco test-cluster test-kubescape test-contour \
         test-iperf3
@@ -164,6 +164,19 @@ sops-load-key: ## Load Age private key into cluster as sops-age secret (run afte
 	  --from-file=age.agekey=/dev/stdin \
 	  --dry-run=client -o yaml | kubectl apply -f -; \
 	printf '  ✓ sops-age secret loaded into flux-system\n\n'
+
+grafana-secret: ## Generate a stable Grafana secret_key and apply it (run once after make bootstrap)
+	@kubectl cluster-info >/dev/null 2>&1 \
+	  || { printf '\n  ✗ No cluster — run: make bootstrap\n\n'; exit 1; }; \
+	if kubectl get secret grafana-secret-key -n observability >/dev/null 2>&1; then \
+	  printf '\n  ✓ grafana-secret-key already exists in observability — skipping\n\n'; \
+	else \
+	  KEY=$$(openssl rand -base64 32); \
+	  kubectl create secret generic grafana-secret-key \
+	    --namespace=observability \
+	    --from-literal=secret-key="$$KEY"; \
+	  printf '  ✓ grafana-secret-key created — Grafana sessions will now persist across restarts\n\n'; \
+	fi
 
 # ── Observation ───────────────────────────────────────────────────────────────
 

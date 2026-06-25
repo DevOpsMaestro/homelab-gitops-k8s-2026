@@ -68,6 +68,13 @@ spec:
         namespace: flux-system
       interval: 24h
   values:
+    podAnnotations:
+      # The clean-cilium-state init container image OOMKills the Trivy scan job
+      # even at 512Mi — it is too large to analyse within the job memory budget.
+      # Skipping it prevents recurring OOMKilled scan jobs on every Cilium
+      # DaemonSet pod restart. All other Cilium init containers are still scanned.
+      trivy-operator.aquasecurity.github.io/skip-containers: clean-cilium-state
+
     # ── KinD-specific requirements ────────────────────────────────────────────
     # KinD nodes run inside Docker containers. The kernel's BPF helpers used by
     # Cilium's kube-proxy replacement are available on modern kernels (5.10+),
