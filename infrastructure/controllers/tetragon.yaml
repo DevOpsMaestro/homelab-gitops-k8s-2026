@@ -46,6 +46,13 @@ spec:
     tetragon:
       # Suppress info-level agent logs. Valid: trace, debug, info, warn, error, fatal, panic.
       logLevel: warn
+      # Disable the policy filter to suppress "failed to find cgroup id. Skipping
+      # container." warnings for ephemeral Trivy scan job pods. The policy filter
+      # maps TracingPolicy label selectors to containers via cgroup IDs; when a
+      # scan pod terminates before the cgroup is resolved, a warning is logged.
+      # Our TracingPolicies apply to all pods without label filtering, so disabling
+      # this feature loses no security coverage.
+      enablePolicyFilter: false
       prometheus:
         enabled: true
         # ServiceMonitor CRD (monitoring.coreos.com/v1) lives in the apps layer

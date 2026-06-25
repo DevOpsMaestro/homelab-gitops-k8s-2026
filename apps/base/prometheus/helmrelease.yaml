@@ -78,7 +78,7 @@ spec:
 
         route:
           group_by: [alertname, namespace, severity]
-          group_wait: 30s
+          group_wait: 10s
           group_interval: 5m
           repeat_interval: 12h
           receiver: "null"
@@ -87,10 +87,12 @@ spec:
             # alerting pipeline (Prometheus → Alertmanager) is alive.
             # Route it to a dead-man's-snitch service (healthchecks.io, Better
             # Uptime, etc.) to get paged when Alertmanager goes silent.
+            # repeat_interval must be >= group_interval (5m); setting it lower
+            # causes Alertmanager to silently suppress Watchdog re-sends.
             - matchers:
                 - alertname = Watchdog
               receiver: "null"
-              repeat_interval: 1m
+              repeat_interval: 5m
 
             # Uncomment to route critical alerts to your primary receiver:
             # - matchers:
@@ -154,6 +156,15 @@ spec:
       # the recurring "context deadline exceeded" errors in kube-apiserver logs.
       admissionWebhooks:
         timeoutSeconds: 30
+        # Known benign warning: the operator sets --web.client-ca-file=
+        # /etc/tls/private/tls-ca.crt but cert-manager mounts the TLS Secret
+        # at /cert (not /etc/tls/private/). The operator disables client cert
+        # verification and logs one warning per restart:
+        #   "server TLS client verification disabled"
+        # This is the correct behaviour — the Kubernetes API server does not
+        # present a client certificate when calling admission webhook servers.
+        # The webhook is fully functional. No chart-level fix without a
+        # postRenderer to override the operator's generated web config.
       resources:
         requests:
           cpu: 100m

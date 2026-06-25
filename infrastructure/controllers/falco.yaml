@@ -168,6 +168,20 @@ spec:
               comps: [startswith]
               values:
                 - ["python -u /app/sidecar.py"]
+      prometheus-exceptions.yaml: |-
+        # Prometheus scrapes Kubernetes API server metrics via the aggregation
+        # layer (metrics.k8s.io, custom.metrics.k8s.io). These connections from
+        # the /usr/bin/prometheus process are expected scrape activity, not
+        # an attack. The process runs inside the Prometheus StatefulSet pod.
+        - rule: Contact K8S API Server From Container
+          override:
+            exceptions: append
+          exceptions:
+            - name: prometheus_api_scrape
+              fields: [proc.exepath]
+              comps: [=]
+              values:
+                - ["/usr/bin/prometheus"]
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
