@@ -227,7 +227,7 @@ spec:
             memory: 256Mi
           limits:
             cpu: 500m
-            memory: 512Mi
+            memory: 1Gi
         # Pick up ServiceMonitors from all namespaces so Cilium's
         # operator-emitted ServiceMonitors (in kube-system) are scraped.
         serviceMonitorSelectorNilUsesHelmValues: false

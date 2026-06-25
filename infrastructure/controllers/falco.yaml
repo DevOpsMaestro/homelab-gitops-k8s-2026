@@ -86,8 +86,8 @@ spec:
         cpu: 100m
         memory: 256Mi
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: 200m
+        memory: 256Mi
 
     # ── Falcosidekick — alert routing to Loki ────────────────────────────────────
     # Falco's native outputs are stdout/file/gRPC. Falcosidekick is the official

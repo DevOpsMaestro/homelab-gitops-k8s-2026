@@ -59,8 +59,8 @@ spec:
           cpu: 100m
           memory: 256Mi
         limits:
-          cpu: 500m
-          memory: 512Mi
+          cpu: 150m
+          memory: 192Mi
     backgroundController:
       replicas: 1
       extraArgs:
@@ -70,8 +70,8 @@ spec:
           cpu: 100m
           memory: 128Mi
         limits:
-          cpu: 250m
-          memory: 256Mi
+          cpu: 100m
+          memory: 128Mi
     cleanupController:
       replicas: 1
       extraArgs:
@@ -81,8 +81,8 @@ spec:
           cpu: 100m
           memory: 128Mi
         limits:
-          cpu: 250m
-          memory: 256Mi
+          cpu: 100m
+          memory: 128Mi
     reportsController:
       replicas: 1
       extraArgs:
@@ -92,8 +92,8 @@ spec:
           cpu: 100m
           memory: 128Mi
         limits:
-          cpu: 250m
-          memory: 256Mi
+          cpu: 100m
+          memory: 128Mi
 
     # Globally exclude system and infrastructure namespaces at the webhook level.
     # Kyverno will not receive admission events for these at all, which is more
