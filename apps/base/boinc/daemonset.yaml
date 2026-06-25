@@ -73,10 +73,7 @@ spec:
               cpu: 500m
               memory: 512Mi
             limits:
-              # Reduced from 1000m — observed usage on worker nodes is 770–852m
-              # during active computation. 800m caps thermal load while leaving
-              # ~200m headroom on each worker for system and scan-job traffic.
-              cpu: 800m
+              cpu: 950m
               memory: 2Gi
           volumeMounts:
             - name: boinc-data
