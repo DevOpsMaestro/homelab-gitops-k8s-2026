@@ -96,32 +96,34 @@ spec:
               store: inmemory
             replication_factor: 1
 
-    # Enable the metrics generator so Tempo produces RED metrics (request rate,
-    # error rate, duration) from ingested traces and writes them to Prometheus
-    # via remote_write. This activates the service-graphs and span-metrics
-    # processors; the local_blocks processor is omitted (requires flush_to_storage
-    # which adds I/O on a resource-limited KinD cluster).
-    # Prometheus must have enableRemoteWriteReceiver: true (set in the
-    # kube-prometheus-stack HelmRelease) to accept the push at /api/v1/write.
-    metricsGenerator:
-      enabled: true
-      remoteWriteUrl: "http://observability-kube-prometh-prometheus.observability.svc.cluster.local:9090/api/v1/write"
-      processor:
-        service_graphs:
-          wait: 10s
-          max_items: 10000
-        span_metrics:
-          enable_target_info: true
-      storage:
-        # Write metrics WAL to the same PVC used for traces; avoids needing a
-        # second persistent volume and keeps all Tempo state in one place.
-        path: /var/tempo/metrics-generator/wal
+      # Enable the metrics generator so Tempo produces RED metrics (request rate,
+      # error rate, duration) from ingested traces and writes them to Prometheus
+      # via remote_write. This activates the service-graphs and span-metrics
+      # processors; the local_blocks processor is omitted (requires flush_to_storage
+      # which adds I/O on a resource-limited KinD cluster).
+      # Prometheus must have enableRemoteWriteReceiver: true (set in the
+      # kube-prometheus-stack HelmRelease) to accept the push at /api/v1/write.
+      metricsGenerator:
+        enabled: true
+        remoteWriteUrl: "http://observability-kube-prometh-prometheus.observability.svc.cluster.local:9090/api/v1/write"
+        processor:
+          service_graphs:
+            wait: 10s
+            max_items: 10000
+          span_metrics:
+            enable_target_info: true
+        storage:
+          # Write metrics WAL to the same PVC used for traces; avoids needing a
+          # second persistent volume and keeps all Tempo state in one place.
+          path: /var/tempo/metrics-generator/wal
+        traces_storage:
+          path: /var/tempo/metrics-generator/traces
 
-    # Enable processors for the default tenant so the generator actually
-    # produces output. Without this block the generator starts but emits nothing.
-    global_overrides:
-      defaults:
-        metrics_generator:
-          processors:
-            - service-graphs
-            - span-metrics
+      # Enable processors for the default tenant so the generator actually
+      # produces output. Without this block the generator starts but emits nothing.
+      overrides:
+        defaults:
+          metrics_generator:
+            processors:
+              - service-graphs
+              - span-metrics
