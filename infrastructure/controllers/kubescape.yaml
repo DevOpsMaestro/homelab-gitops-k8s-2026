@@ -18,7 +18,7 @@ spec:
   chart:
     spec:
       chart: kubescape-operator
-      version: "1.40.x"
+      version: "1.x"
       sourceRef:
         kind: HelmRepository
         name: kubescape
@@ -59,7 +59,7 @@ spec:
       # 400 "missing account id" error on every scan cycle because no account
       # or accessKey is configured. Enable offline mode to suppress this.
       kubescapeOffline: enable
-    # Known chart issue (kubescape-operator 1.40.x): the chart mounts an emptyDir
+    # Known chart issue (kubescape-operator ≤1.40.x): the chart mounts an emptyDir
     # volume with subPath: config.json at /home/nonroot/.kubescape/config.json.
     # Kubernetes creates the subPath entry as a directory before any container
     # starts, so the kubescape CLI binary finds a directory at that path instead
@@ -70,8 +70,8 @@ spec:
     # flow through the operator → storage → prometheus-exporter path, which does
     # not touch this file. Confirmed: 15 kubescape_controls_* and
     # kubescape_vulnerabilities_* metrics series are present in Prometheus after
-    # each scan cycle. Resolution: upgrade to a chart version that corrects the
-    # volume configuration. Renovate will open a PR when one is available.
+    # each scan cycle. The constraint above was widened to 1.x so Flux picks up
+    # the fix automatically when a corrected minor release is available.
     configurations:
       prometheusAnnotations: disable
 ---
