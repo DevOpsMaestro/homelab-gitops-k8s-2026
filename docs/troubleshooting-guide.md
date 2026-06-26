@@ -222,6 +222,12 @@ flux reconcile kustomization apps -n flux-system
 
 # Force a specific HelmRelease (add --with-source to also re-pull the chart)
 flux reconcile helmrelease cilium -n flux-system --with-source
+
+# Suspend all helmrelease
+kubectl get helmrelease -A --no-headers | awk '{print $1, $2}' | xargs -n2 sh -c 'flux suspend helmrelease "$2" -n "$1"' _
+
+# Resume all helmrelease
+kubectl get helmrelease -A --no-headers | awk '{print $1, $2}' | xargs -n2 sh -c 'flux resume helmrelease "$2" -n "$1"' _
 ```
 
 ### Inspect a Failing HelmRelease
