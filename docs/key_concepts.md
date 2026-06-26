@@ -225,6 +225,8 @@ Findings that have been reviewed and accepted as intentional are recorded in `do
 
 Encrypted values appear as `ENC[AES256_GCM,data:...,type:str]` in the YAML file. Only the `data` and `stringData` fields are encrypted; `kind`, `metadata`, and `apiVersion` remain readable. Flux's `kustomize-controller` decrypts secrets in memory at reconcile time using a private key stored in the cluster as the `sops-age` secret.
 
+**Grafana also requires a non-SOPS bootstrap secret:** the `grafana-secret-key` in the `observability` namespace. Grafana uses this key to encrypt stored datasource credentials and sign user sessions. It is not committed to Git. The bootstrap script generates it with `openssl rand -base64 32` and creates it in the cluster before Flux reconciles. If this Secret is absent when Grafana first installs, Kubernetes rejects the pod because the `envValueFrom` reference is unresolvable. See [docs/sops-age-secrets.md](sops-age-secrets.md) for recovery instructions.
+
 See [docs/sops-age-secrets.md](sops-age-secrets.md) for the complete setup guide and day-to-day workflow.
 
 ---
@@ -238,7 +240,7 @@ This cluster participates in:
 - **Rosetta@Home** — protein structure prediction for medical research
 - **Einstein@Home** — gravitational wave and pulsar detection
 
-BOINC runs as a DaemonSet (one pod per node). It is capped at 1 CPU core to keep peak temperatures below 65°C on the passively cooled MacBook Air M5.
+BOINC runs as a DaemonSet (one pod per node). It is capped at 950m CPU (0.95 cores) to keep peak temperatures below 65°C on the passively cooled MacBook Air M5.
 
 See [docs/boinc.md](boinc.md) for operational details, status commands, and how to update project credentials.
 
@@ -298,12 +300,12 @@ kubectl get vulnerabilityreports -A
 
 | Tool | What It Captures | Chart Version | App Version |
 |------|-----------------|---------------|-------------|
-| **Prometheus** (`kube-prometheus-stack`) | Metrics — numbers over time (CPU %, request rate, error count) | 86.2.3 | v0.91.0 (operator) |
+| **Prometheus** (`kube-prometheus-stack`) | Metrics — numbers over time (CPU %, request rate, error count) | 87.2.1 | v0.92.0 (operator) |
 | **Grafana** | Dashboards — visual graphs and tables built from Prometheus and Loki data | 10.5.15 | 12.3.1 |
 | **Loki** | Logs — the text output of every container in the cluster | 7.0.0 | 3.6.7 |
 | **Promtail** | Log collector — a DaemonSet that reads log files on each node and ships them to Loki | 6.17.1 | 3.5.1 |
 | **Grafana Tempo** | Distributed traces — records the full path a request takes through multiple services | 1.24.4 | 2.9.0 |
-| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.158.2 | 0.153.0 |
+| **OpenTelemetry Collector** | Trace pipeline — receives OTLP trace spans from Istio Envoy sidecars and forwards them to Tempo | 0.159.0 | 0.154.0 |
 
 **How they connect:**
 

@@ -49,7 +49,7 @@ Source file: [apps/base/boinc/netpol.yaml](../apps/base/boinc/netpol.yaml)
 
 ### CPU Limit and Thermal Management
 
-The DaemonSet is capped at `1000m` (1 CPU core out of 10 on the M5 chip). On the passively cooled MacBook Air M5, this keeps peak core temperatures below 65°C. Raising the limit above 1500m pushes cores to 74°C+, which is within Apple Silicon's safe operating range but above the thermal target for this cluster.
+The DaemonSet is capped at `950m` (0.95 CPU cores out of 10 on the M5 chip). On the passively cooled MacBook Air M5, this keeps peak core temperatures below 65°C. Raising the limit above 1500m pushes cores to 74°C+, which is within Apple Silicon's safe operating range but above the thermal target for this cluster.
 
 ---
 
@@ -159,11 +159,11 @@ The most common cause is an incorrect authenticator key in the Secret. Fix with 
 
 ### High CPU Temperatures
 
-BOINC uses its full limit (1000m) whenever work units are available. If temperatures are consistently above 65°C, lower the CPU limit in `apps/base/boinc/daemonset.yaml`:
+BOINC uses its full limit (950m) whenever work units are available. If temperatures are consistently above 65°C, lower the CPU limit in [apps/base/boinc/daemonset.yaml](../apps/base/boinc/daemonset.yaml):
 
 ```yaml
 limits:
-  cpu: 750m   # down from 1000m
+  cpu: 750m   # down from 950m
 ```
 
 Alternatively, set CPU usage preferences on the BOINC project website: account settings → computing preferences → "Use at most X% of CPU time".

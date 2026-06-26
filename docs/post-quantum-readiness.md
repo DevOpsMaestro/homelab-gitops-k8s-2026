@@ -78,7 +78,7 @@ sidecar-injected pod. Certificates rotate every 24 hours by default.
 
 ### 3. cert-manager (Installed, No Active Issuers)
 
-**Config:** `infrastructure/controllers/cert-manager.yaml` — version v1.20.2
+**Config:** `infrastructure/controllers/cert-manager.yaml` — version v1.20.3
 
 cert-manager is installed as an Istio dependency. No `Certificate`, `Issuer`, or
 `ClusterIssuer` CRDs are deployed — it is not currently issuing any certificates.

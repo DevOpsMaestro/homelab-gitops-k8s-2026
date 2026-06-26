@@ -28,6 +28,7 @@ FluxCD GitOps cluster for KinD — multi-node, Cilium CNI with kube-proxy replac
 | [Istio Basic Reference](docs/ISTIO_basic_notes.md) | Day-to-day Istio administration commands |
 | [Istio Advanced Reference](docs/ISTIO_advanced_notes.md) | mTLS enforcement, authorization policy, tracing configuration |
 | [iperf3 Network Testing](docs/iperf3.md) | TCP bandwidth measurement through the nginx nodeport-proxy stream layer — network path and test procedures |
+| [Day-2 Operations Guide](docs/day2-operations.md) | Daily cluster health checks, Renovate PR workflow, Kubescape score review, and secret rotation procedures |
 
 ## Repository Structure
 
@@ -118,7 +119,7 @@ homelab-gitops-k8s-2026/
 │           └── kustomization.yaml # Active: prometheus, grafana, istio, kyverno, loki, promtail, demo, tempo, opentelemetry, boinc, contour
 │
 └── scripts/
-    ├── setup-fluxcd-gitops-kind-multinode.sh  # Full 9-step cluster bootstrap
+    ├── setup-fluxcd-gitops-kind-multinode.sh  # Full 10-step cluster bootstrap
     ├── destroy.sh                             # Tear down cluster and Flux
     ├── set-flux-branch.sh                     # Update Flux GitRepository branch patch
     ├── kind-pre-loader-for-images.sh          # Standalone image pre-loader for KinD nodes
@@ -191,27 +192,27 @@ The "Chart Version" column is the Helm chart release version. The "App Version" 
 | Cilium CNI | cilium/cilium | 1.19.5 | v1.19.5 | kube-system | |
 | Hubble Relay | (bundled with Cilium) | 1.19.5 | v1.19.5 | kube-system | |
 | Hubble UI | (bundled with Cilium) | — | 0.13.1 | kube-system | Disabled by default; enable via `hubble.ui.enabled: true` in `cilium.yaml` |
-| cert-manager | cert-manager/cert-manager | v1.20.2 | v1.20.2 | cert-manager | |
-| OpenEBS localpv | openebs/openebs | 4.5.0 | 4.5.0 | openebs | |
-| istio-base | istio/base | 1.30.1 | 1.30.1 | istio-system | |
-| istiod | istio/istiod | 1.30.1 | 1.30.1 | istio-system | |
+| cert-manager | cert-manager/cert-manager | v1.20.3 | v1.20.3 | cert-manager | |
+| OpenEBS localpv | openebs/openebs | 4.5.1 | 4.5.1 | openebs | |
+| istio-base | istio/base | 1.30.2 | 1.30.2 | istio-system | |
+| istiod | istio/istiod | 1.30.2 | 1.30.2 | istio-system | |
 | Contour | projectcontour/contour | 0.6.0 | 1.33.5 | contour | Sole HTTP ingress controller; streams xDS to its Envoy DaemonSet over gRPC port 8001 |
 | Contour Envoy data-plane | (bundled with Contour chart) | 0.6.0 | v1.35.10 | contour | DaemonSet data plane; receives xDS from the Contour controller and routes live HTTP traffic |
 | Metrics Server | metrics-server/metrics-server | 3.13.1 | 0.8.1 | metrics-server | Powers `kubectl top` and HPA; `--kubelet-insecure-tls` required for KinD |
-| kube-prometheus-stack | prometheus-community/kube-prometheus-stack | 86.2.3 | v0.91.0 (operator) | observability | |
+| kube-prometheus-stack | prometheus-community/kube-prometheus-stack | 87.2.1 | v0.92.0 (operator) | observability | |
 | Grafana | grafana/grafana | 10.5.15 | 12.3.1 | observability | |
 | Loki | grafana/loki | 7.0.0 | 3.6.7 | observability | |
 | Promtail | grafana/promtail | 6.17.1 | 3.5.1 | observability | |
 | Grafana Tempo | grafana/tempo | 1.24.4 | 2.9.0 | observability | Single-binary mode; trace backend for the OTel pipeline |
-| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.158.2 | 0.153.0 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
+| OpenTelemetry Collector | open-telemetry/opentelemetry-collector | 0.159.0 | 0.154.0 | observability | Contrib distribution; OTLP ingress → Tempo export; Istio sidecar disabled |
 | Tetragon | cilium/tetragon | 1.7.0 | 1.7.0 | tetragon | |
 | Kyverno | kyverno/kyverno | 3.8.1 | v1.18.1 | kyverno | |
 | Kubescape | kubescape/kubescape-operator | 1.40.2 | v4.0.8 | kubescape | NSA + MITRE continuous scan; vulnerability scan disabled for KinD |
 | Falco + Falcosidekick | falcosecurity/falco | 9.1.0 | 0.44.1 / 2.32.0 | falco | |
-| Trivy Operator | aquasecurity/trivy-operator | 0.33.1 | 0.31.1 | trivy-system | Image CVE scanning — VulnerabilityReport CRDs + Prometheus metrics; `ignoreUnfixed: true` |
+| Trivy Operator | aquasecurity/trivy-operator | 0.33.2 | 0.31.2 | trivy-system | Image CVE scanning — VulnerabilityReport CRDs + Prometheus metrics; `ignoreUnfixed: true` |
 | demo (httpbin) | kennethreitz/httpbin | — | @sha256:599fe5… | demo | No versioned tags published; pinned by digest |
 | iperf3 server | networkstatic/iperf3 | — | multiarch | iperf3 | TCP bandwidth measurement via nginx stream block; direct path, no ingress controller |
-| BOINC | boinc/client | — | arm64v8 | boinc | Voluntary compute — Rosetta@Home + Einstein@Home; capped at 1 CPU core for thermal management |
+| BOINC | boinc/client | — | arm64v8 | boinc | Voluntary compute — Rosetta@Home + Einstein@Home; capped at 950m CPU for thermal management |
 | Renovate | renovatebot/github-action | — | — | — | Automated dependency PRs for Helm charts, images, GitHub Actions, and CI tool pins |
 | Gitleaks | gitleaks/gitleaks | — | — | — | Secret scanning on every PR — detects accidentally committed credentials before merge |
 
@@ -238,18 +239,18 @@ The versions below were validated together. When upgrading a component, verify c
 | Kubernetes (KinD node) | — | v1.36.1 | `K8S_VER` in `versions.env` |
 | Flux CD | — | v2.8.8 | `flux bootstrap github` — update by re-running bootstrap with a newer CLI |
 | Cilium | 1.19.5 | v1.19.5 | `cilium.yaml` chart constraint (`1.19.x`) + `versions.env` |
-| Istio | 1.30.1 | 1.30.1 | `istio.yaml` chart constraint (`1.30.x`) + `versions.env` |
+| Istio | 1.30.2 | 1.30.2 | `istio.yaml` chart constraint (`1.30.x`) + `versions.env` |
 | Contour | 0.6.0 | 1.33.5 | `contour.yaml` chart constraint (`0.x`); `CONTOUR_VERSION` in `versions.env` (informational — Contour is installed by Flux, not the bootstrap script) |
-| kube-prometheus-stack | 86.2.3 | v0.91.0 (operator) | `prometheus/helmrelease.yaml` chart constraint (`86.x`) |
+| kube-prometheus-stack | 87.2.1 | v0.92.0 (operator) | `prometheus/helmrelease.yaml` chart constraint (`87.x`) |
 | Loki | 7.0.0 | 3.6.7 | `loki/helmrelease.yaml` chart constraint (`7.x`) |
 | Grafana | 10.5.15 | 12.3.1 | `grafana/helmrelease.yaml` chart constraint (`10.x`) |
 | Grafana Tempo | 1.24.4 | 2.9.0 | `tempo/helmrelease.yaml` chart constraint (`1.x`) |
-| OpenTelemetry Collector | 0.158.2 | 0.153.0 | `opentelemetry/helmrelease.yaml` chart constraint (`0.158.x`) |
+| OpenTelemetry Collector | 0.159.0 | 0.154.0 | `opentelemetry/helmrelease.yaml` chart constraint (`0.159.x`) |
 | Kyverno | 3.8.1 | v1.18.1 | `kyverno.yaml` chart constraint (`3.x`) |
 | Kubescape | 1.40.2 | v4.0.8 | `kubescape.yaml` chart constraint (`1.40.x`) |
 | Falco | 9.1.0 | 0.44.1 | `falco.yaml` chart constraint (`9.x`) |
 | Tetragon | 1.7.0 | 1.7.0 | `tetragon.yaml` chart constraint (`1.7.x`) |
-| Trivy Operator | 0.33.1 | 0.31.1 | `trivy.yaml` chart constraint (`0.x`) |
+| Trivy Operator | 0.33.2 | 0.31.2 | `trivy.yaml` chart constraint (`0.x`) |
 
 All version pins shared between the Makefile and setup script are sourced from `versions.env` at the repository root. Updating them there propagates the change to both consumers.
 
@@ -284,6 +285,10 @@ All version pins shared between the Makefile and setup script are sourced from `
 **Five-layer runtime security model** — Kyverno (admission control) validates pods before they start and audits misconfigurations. Tetragon (eBPF enforcement) can terminate processes and block network connections at the syscall level. Falco (behavioral detection) continuously audits running containers and issues alerts on anomalous activity — shell spawning, sensitive file reads, credential exposure — routing them to Loki via Falcosidekick. Kubescape (compliance scanning) continuously audits the cluster's actual running state against NSA and MITRE ATT&CK frameworks and surfaces configuration drift. Trivy Operator (image CVE scanning) continuously scans every running container image and produces `VulnerabilityReport` CRDs with Prometheus metrics. The five tools are complementary: Kyverno prevents bad configuration from entering, Tetragon stops active exploitation, Falco logs suspicious activity for forensic review, Kubescape measures posture against industry frameworks, and Trivy surfaces known CVEs in the images actually running in the cluster.
 
 **Gitleaks runs on every PR** — The `validate.yaml` CI workflow runs Gitleaks as its first step (before kustomize build or Kyverno tests) to detect accidentally committed credentials, API keys, and private key material. The version pin is tracked by Renovate via a custom regex manager so it stays current automatically.
+
+**Resource limits are sized from observed usage with a safety margin** — CPU and memory limits are not arbitrary defaults. Each component's limits were set after reviewing `kubectl top pods` output over representative workloads and adding a margin for bursts. Prometheus requires 1 Gi memory because it holds an in-memory query engine and multiple scrape targets; its observed usage of ~440 Mi makes OOM a real risk at 512 Mi. Falco is capped at 200m CPU (observed ~55m) and Tetragon at 100m CPU (observed ~8m); these margins prevent thermal spikes on the passively cooled M5 host without over-allocating scheduler headroom. Kyverno's admission controller is capped at 150m CPU and 192 Mi memory — tight enough to free capacity for workloads, loose enough to handle bursty webhook traffic. All limits were updated in PR #136 based on live cluster measurements.
+
+**Grafana requires a stable `secret_key` across restarts** — Grafana encrypts datasource credentials and signs user sessions using a secret key stored in `GF_SECURITY_SECRET_KEY`. Without a stable, pre-created key, every pod restart re-generates a random key, which invalidates existing sessions and corrupts stored datasource passwords. The bootstrap script (step 10) pre-creates the `grafana-secret-key` Kubernetes Secret in the `observability` namespace before Flux reconciles. The Grafana HelmRelease reads this Secret via `envValueFrom`. If the Secret is absent when Grafana first installs, Kubernetes rejects the pod and the HelmRelease enters a failed state. Recreate it with: `kubectl create secret generic grafana-secret-key --namespace observability --from-literal=secret-key="$(openssl rand -base64 32)"`.
 
 **PrometheusRules in a separate Flux Kustomization** — Custom `PrometheusRule` CRDs (cluster health, GitOps health, certificate expiry, Falco critical events, Kyverno enforcement violations) cannot be bundled in the same Flux Kustomization as the kube-prometheus-stack HelmRelease that installs the CRD. Flux dry-runs all resources before applying any of them, so the CRD is never present when the dry-run runs — causing a deadlock that prevents the HelmRelease from applying too. The fix: a separate `monitoring-rules` Kustomization (`clusters/kind/monitoring-rules.yaml`) with `dependsOn: apps`. Because `apps` has `wait: true`, Flux marks it healthy only after kube-prometheus-stack is fully running and the CRD is registered.
 
@@ -339,6 +344,7 @@ What it does:
 7. Runs `flux bootstrap github` to push Flux manifests and start reconciliation
 8. Creates the SOPS age key secret in `flux-system` if the key file exists
 9. Creates the `github-token` secret in `flux-system` — reuses the token from `gh auth` (already has `repo` scope from step 7) so the Flux notification controller can post commit status checks back to GitHub
+10. Creates the `grafana-secret-key` Secret in the `observability` namespace — a randomly generated 32-byte key that Grafana uses to encrypt datasource credentials and sign sessions. Pre-creating this Secret before Flux reconciles prevents a failed first install: the Grafana HelmRelease references this Secret via `envValueFrom`, and Kubernetes rejects the pod if the Secret is absent
 
 ### Estimated Time
 
