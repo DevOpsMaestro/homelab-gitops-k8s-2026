@@ -1,6 +1,6 @@
 # Istio — Advanced Administration Reference
 
-Cluster: `flux-kind` · Istio 1.30 · Cilium CNI with `socketLB.hostNamespaceOnly: true`
+Cluster: `flux-kind` · Istio 1.30.2 · Cilium CNI with `socketLB.hostNamespaceOnly: true`
 
 ---
 

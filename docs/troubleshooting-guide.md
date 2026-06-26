@@ -1,7 +1,7 @@
 # Troubleshooting Guide
 
 Cluster: `flux-kind` · KinD 1.36.1 · 1 control-plane + 2 workers
-Stack: Flux CD · Cilium 1.19 · Hubble · cert-manager 1.20 · OpenEBS 4.x · Istio 1.30 (mesh only) · Contour 1.33 · Metrics Server 3.x · Tetragon 1.7 · Kyverno 3 · Kubescape 1.40 · Falco 9 · Trivy Operator 0.x · kube-prometheus-stack 86 · Grafana 10 (app 12) · Grafana Tempo 1 · OpenTelemetry Collector 0 · BOINC · SOPS + Age · iperf3
+Stack: Flux CD · Cilium 1.19 · Hubble · cert-manager 1.20 · OpenEBS 4.x · Istio 1.30 (mesh only) · Contour 1.33 · Metrics Server 3.x · Tetragon 1.7 · Kyverno 3 · Kubescape 1.40 · Falco 9 · Trivy Operator 0.x · kube-prometheus-stack 87 · Grafana 10 (app 12) · Grafana Tempo 1 · OpenTelemetry Collector 0 · BOINC · SOPS + Age · iperf3
 
 ---
 
@@ -1005,7 +1005,7 @@ kubectl get pods -n observability -l app.kubernetes.io/name=kube-prometheus-stac
 
 ### Prometheus UI
 
-No port-forward required via Gateway API:
+No port-forward required via Contour HTTPProxy:
 
 ```text
 http://prometheus.local:8080
@@ -1062,7 +1062,7 @@ kubectl logs -n observability -l app.kubernetes.io/name=prometheus --container=p
 
 ### Grafana UI
 
-No port-forward required via Gateway API:
+No port-forward required via Contour HTTPProxy:
 
 ```text
 http://grafana.local:8080
@@ -1081,6 +1081,21 @@ kubectl port-forward -n observability svc/observability-grafana 3000:80
 
 ```bash
 kubectl get pods -n observability -l app.kubernetes.io/name=grafana
+```
+
+### Verify the grafana-secret-key Secret Exists
+
+The Grafana pod will not start if this Secret is missing from the `observability` namespace:
+
+```bash
+kubectl get secret grafana-secret-key -n observability
+# If missing, recreate it:
+kubectl create secret generic grafana-secret-key \
+  --namespace observability \
+  --from-literal=secret-key="$(openssl rand -base64 32)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+# Then force a clean install:
+flux suspend helmrelease grafana -n flux-system && flux resume helmrelease grafana -n flux-system
 ```
 
 ### Verify Dashboards Loaded
@@ -1125,7 +1140,7 @@ kubectl logs -n observability deploy/observability-grafana -c grafana | tail -50
 
 ## 16. Flux GitHub Notifications
 
-Flux posts commit status checks to GitHub via the notification controller. The Provider and Alerts live in `apps/base/notifications/`; the `github-token` secret is created by the bootstrap script (step 9).
+Flux posts commit status checks to GitHub via the notification controller. The Provider and Alerts live in `apps/base/notifications/`; the `github-token` secret is created by the bootstrap script (step 9 of 10).
 
 ### Check Notification Controller Health
 

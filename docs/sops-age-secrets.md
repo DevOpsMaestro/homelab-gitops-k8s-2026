@@ -218,7 +218,7 @@ After `make destroy`, the cluster is gone and the `sops-age` secret is lost with
 
 ```bash
 make destroy
-make bootstrap        # step 9/10 re-creates sops-age automatically
+make bootstrap        # step 8/10 re-creates sops-age automatically
 flux get all -A       # watch reconciliation — secrets decrypt on first sync
 ```
 
@@ -255,6 +255,33 @@ The `decryption:` block in `clusters/kind/apps.yaml`:
 ```
 
 Only the `apps` Kustomization carries this block because that is the layer where encrypted secrets currently reside. If encrypted secrets are added to the `infrastructure-configs` layer in the future, the same block must be added to `clusters/kind/infrastructure-configs.yaml`.
+
+---
+
+## Grafana `secret_key` — A Related Bootstrap Secret
+
+The `grafana-secret-key` Secret is not managed by SOPS. It is not committed to Git. The bootstrap script (step 10 of 10) creates it directly in the `observability` namespace using `openssl rand -base64 32`.
+
+This Secret is separate from the SOPS-managed `grafana-admin-secret`. Its purpose is different: Grafana uses `GF_SECURITY_SECRET_KEY` to encrypt stored datasource passwords and sign browser sessions. Without a stable value, every pod restart generates a new key, which corrupts stored datasource credentials and forces all users to log in again.
+
+**What happens if it is missing:**
+
+If `grafana-secret-key` does not exist in the `observability` namespace when the Grafana HelmRelease first installs, Kubernetes rejects the pod because the `envValueFrom` reference cannot be resolved. The HelmRelease enters a failed state and Grafana does not start.
+
+**How to recreate it on a running cluster:**
+
+```bash
+kubectl create secret generic grafana-secret-key \
+  --namespace observability \
+  --from-literal=secret-key="$(openssl rand -base64 32)" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Force Grafana to pick it up
+flux suspend helmrelease grafana -n flux-system
+flux resume helmrelease grafana -n flux-system
+```
+
+**After a cluster rebuild:** The bootstrap script recreates this Secret automatically. No manual step is required after `make bootstrap`.
 
 ---
 
