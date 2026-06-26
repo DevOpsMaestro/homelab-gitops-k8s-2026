@@ -50,6 +50,9 @@ spec:
   values:
     mode: deployment
 
+    image:
+      repository: otel/opentelemetry-collector-contrib
+
     podLabels:
       sidecar.istio.io/inject: "false"
 
