@@ -1,0 +1,117 @@
+---
+# Policy: Verify Container Image Signatures (Cosign / Sigstore keyless)
+#
+# Validates that images from projects that publish Cosign keyless signatures
+# were signed by the expected GitHub Actions release workflow at the time of
+# release. Verification uses Sigstore Fulcio for certificate issuance and
+# the public Rekor transparency log for signed-timestamp verification.
+#
+# Coverage:
+#   quay.io/cilium/cilium, operator-generic, hubble-relay
+#     └── Signed by: github.com/cilium/cilium  (build-images-releases.yaml)
+#   quay.io/cilium/cilium-envoy
+#     └── Signed by: github.com/cilium/proxy   (build-envoy-images-release-base.yaml)
+#   quay.io/cilium/tetragon, tetragon-operator
+#     └── Signed by: github.com/cilium/tetragon (build-images-releases.yml)
+#
+# Intentionally excluded (no verifiable signature available today):
+#   quay.io/cilium/hubble-export-stdout — no Cosign signature published
+#   quay.io/jetstack/cert-manager-*    — signed with a static private key;
+#                                        public key not published in their repo
+#   reg.kyverno.io/kyverno/*           — re-tagged from ghcr.io/kyverno with a
+#                                        different image digest; signatures on
+#                                        ghcr.io cannot be transferred to the
+#                                        re-tagged manifest
+#
+# Mode: Audit — reports violations without blocking admission.
+# To harden to Enforce once you have confirmed zero false-positive violations:
+#   kubectl patch clusterpolicy verify-image-signatures \
+#     --type=merge -p '{"spec":{"validationFailureAction":"Enforce"}}'
+#
+# Verification identities confirmed via cosign on 2026-06-26 against the
+# live images deployed in this cluster.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-image-signatures
+  annotations:
+    policies.kyverno.io/title: Verify Container Image Signatures
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Verifies that quay.io/cilium/* container images carry a valid Cosign keyless
+      signature from the expected GitHub Actions release workflow. Covers Cilium CNI,
+      Hubble Relay, Cilium Envoy, and Tetragon. Uses Sigstore keyless signing with
+      OIDC identity verification via the public Rekor transparency log.
+spec:
+  validationFailureAction: Audit
+  background: false
+  webhookTimeoutSeconds: 30
+  rules:
+
+    # ── Cilium CNI core images ─────────────────────────────────────────────────
+    # github.com/cilium/cilium → .github/workflows/build-images-releases.yaml
+    # Covers: cilium agent, generic operator, Hubble relay
+    - name: verify-cilium-core
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "quay.io/cilium/cilium:*"
+            - "quay.io/cilium/operator-generic:*"
+            - "quay.io/cilium/hubble-relay:*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/cilium/cilium/.github/workflows/build-images-releases.yaml@refs/tags/v*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: "https://rekor.sigstore.dev"
+
+    # ── Cilium Envoy data-plane image ─────────────────────────────────────────
+    # github.com/cilium/proxy → .github/workflows/build-envoy-images-release-base.yaml
+    # Released on branch refs/heads/vMAJOR.MINOR (not a tag ref).
+    - name: verify-cilium-envoy
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "quay.io/cilium/cilium-envoy:*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/cilium/proxy/.github/workflows/build-envoy-images-release-base.yaml@refs/heads/v*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: "https://rekor.sigstore.dev"
+
+    # ── Tetragon eBPF security observability images ────────────────────────────
+    # github.com/cilium/tetragon → .github/workflows/build-images-releases.yml
+    # Note: extension is .yml (not .yaml) — must match exactly.
+    - name: verify-tetragon
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      verifyImages:
+        - imageReferences:
+            - "quay.io/cilium/tetragon:*"
+            - "quay.io/cilium/tetragon-operator:*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    subject: "https://github.com/cilium/tetragon/.github/workflows/build-images-releases.yml@refs/tags/v*"
+                    issuer: "https://token.actions.githubusercontent.com"
+                    rekor:
+                      url: "https://rekor.sigstore.dev"

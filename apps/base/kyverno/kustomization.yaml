@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - policies.yaml
   - mutations.yaml
+  - verify-images.yaml
