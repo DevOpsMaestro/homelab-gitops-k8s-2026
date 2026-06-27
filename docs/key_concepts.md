@@ -182,6 +182,8 @@ Two enforcement modes:
 
 This cluster uses both modes. `require-resource-limits` and `disallow-privilege-escalation` are **Enforce** — Pods without CPU/memory limits are rejected at admission. `pod-security-baseline` and `disallow-latest-image-tag` are **Audit** — violations are reported but not blocked, allowing infrastructure components that legitimately require privileged access to run while their configurations are tracked in policy reports.
 
+A sixth policy, `verify-image-signatures` (`apps/base/kyverno/verify-images.yaml`), runs in **Audit** mode and performs Cosign keyless verification at admission time. It checks that `quay.io/cilium/*` container images (Cilium CNI, Hubble Relay, Cilium Envoy, and Tetragon) carry a valid signature issued by the expected GitHub Actions release workflow. The trust anchor is the public Rekor transparency log (`rekor.sigstore.dev`); verification is live at admission and is not performed in the background (`background: false`). Violations are recorded in `PolicyReport` and `ClusterPolicyReport` objects. To harden the policy to `Enforce` after confirming zero false-positive violations, patch the policy's `validationFailureAction` field.
+
 ---
 
 ## eBPF Runtime Security — Tetragon

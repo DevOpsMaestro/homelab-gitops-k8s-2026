@@ -868,10 +868,11 @@ kubectl logs -n tetragon deploy/tetragon-operator | tail -50
 # All four controllers — admission, background, cleanup, reports
 kubectl get pods -n kyverno
 
-# ClusterPolicies — READY: True, BACKGROUND: True for all five
+# ClusterPolicies — READY: True, BACKGROUND: True for all six
 # Validation policies: pod-security-baseline, disallow-latest-image-tag,
 #   require-resource-limits (Enforce), disallow-privilege-escalation (Enforce)
-# Mutation policy: mutate-jobs-disable-istio-injection (apps/base/kyverno/mutations.yaml)
+# Mutation policy:    mutate-jobs-disable-istio-injection (apps/base/kyverno/mutations.yaml)
+# Supply chain policy: verify-image-signatures (apps/base/kyverno/verify-images.yaml)
 kubectl get clusterpolicies
 ```
 
@@ -889,6 +890,35 @@ kubectl describe clusteradmissionreport <name> -n <namespace>
 # Count violations by policy across the cluster
 kubectl get clusteradmissionreports -A -o json \
   | jq '[.items[].spec.summary.fail] | add'
+```
+
+### View Image Signature Verification Violations
+
+The `verify-image-signatures` policy runs in Audit mode. Kyverno records violations in `PolicyReport` resources (namespace-scoped) and `ClusterPolicyReport` resources (cluster-scoped):
+
+```bash
+# Namespace-scoped reports — one per namespace where pods were admitted
+kubectl get policyreport -A
+
+# Filter for verify-image-signatures violations only
+kubectl get policyreport -A -o json \
+  | jq '[.items[].results[] | select(.policy == "verify-image-signatures" and .result == "fail")]'
+
+# Cluster-scoped report summary
+kubectl get clusterpolicyreport -o json \
+  | jq '.items[].results[] | select(.policy == "verify-image-signatures")'
+```
+
+A violation means Kyverno could not confirm the image was signed by the expected GitHub Actions workflow at the Rekor transparency log. Common causes:
+- Image pulled without a tag (digest-only reference resolves, but the `imageReferences` glob `*` matches tags, not bare digests — see Kyverno `imageReferences` docs)
+- Cosign signature not present in the Rekor log (pre-release or unofficial build)
+- Rekor or `quay.io` temporarily unreachable (the `webhookTimeoutSeconds: 30` budget expired)
+
+To promote the policy from Audit to Enforce once violations are confirmed false-positive free:
+
+```bash
+kubectl patch clusterpolicy verify-image-signatures \
+  --type=merge -p '{"spec":{"validationFailureAction":"Enforce"}}'
 ```
 
 ### Run Policy Unit Tests
@@ -911,6 +941,8 @@ The direct `kyverno test` invocation is useful when revising policy — it print
 Test layout:
 - `apps/base/kyverno/tests/kyverno-test.yaml` — 45 tests across the four validation ClusterPolicies
 - `apps/base/kyverno/tests/mutations/kyverno-test.yaml` — 3 tests for `mutate-jobs-disable-istio-injection`
+
+The `verify-image-signatures` policy has no offline unit tests. Cosign keyless verification requires a live connection to the image registry and the Rekor transparency log; it cannot be exercised with static fixture manifests.
 
 ### Kyverno Logs
 
