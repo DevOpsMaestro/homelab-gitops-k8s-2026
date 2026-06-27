@@ -72,7 +72,7 @@ spec:
           memory: 256Mi
         limits:
           cpu: 100m
-          memory: 256Mi
+          memory: 512Mi
     # export.resources controls the export-stdout sidecar container (chart key is
     # top-level, separate from tetragon.resources which covers the main agent).
     # Without this the sidecar has no limits and fails the require-resource-limits
