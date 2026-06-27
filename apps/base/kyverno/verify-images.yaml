@@ -28,6 +28,11 @@
 #   kubectl patch clusterpolicy verify-image-signatures \
 #     --type=merge -p '{"spec":{"validationFailureAction":"Enforce"}}'
 #
+# mutateDigest: false is required on every verifyImages block when
+# validationFailureAction is Audit. Kyverno rejects the policy at admission
+# if mutateDigest is true (the default) in Audit mode because mutating the
+# digest of an already-admitted pod is undefined behaviour.
+#
 # Verification identities confirmed via cosign on 2026-06-26 against the
 # live images deployed in this cluster.
 apiVersion: kyverno.io/v1
@@ -64,6 +69,7 @@ spec:
             - "quay.io/cilium/cilium:*"
             - "quay.io/cilium/operator-generic:*"
             - "quay.io/cilium/hubble-relay:*"
+          mutateDigest: false
           attestors:
             - count: 1
               entries:
@@ -85,6 +91,7 @@ spec:
       verifyImages:
         - imageReferences:
             - "quay.io/cilium/cilium-envoy:*"
+          mutateDigest: false
           attestors:
             - count: 1
               entries:
@@ -107,6 +114,7 @@ spec:
         - imageReferences:
             - "quay.io/cilium/tetragon:*"
             - "quay.io/cilium/tetragon-operator:*"
+          mutateDigest: false
           attestors:
             - count: 1
               entries:
