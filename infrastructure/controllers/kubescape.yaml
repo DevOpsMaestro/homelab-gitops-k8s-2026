@@ -63,17 +63,34 @@ spec:
     # volume with subPath: config.json at /home/nonroot/.kubescape/config.json.
     # Kubernetes creates the subPath entry as a directory before any container
     # starts, so the kubescape CLI binary finds a directory at that path instead
-    # of a writable file. This produces the following error on every scan cycle:
+    # of a writable file. This causes every scan cycle to fail with:
     #   open /home/nonroot/.kubescape/config.json: is a directory
-    # The error is benign. It affects only local account-state persistence, which
-    # has no purpose in offline mode (kubescapeOffline: enable). Scan results
-    # flow through the operator → storage → prometheus-exporter path, which does
-    # not touch this file. Confirmed: 15 kubescape_controls_* and
-    # kubescape_vulnerabilities_* metrics series are present in Prometheus after
-    # each scan cycle. The constraint above was widened to 1.x so Flux picks up
-    # the fix automatically when a corrected minor release is available.
+    # and produces 0.00 compliance scores across all frameworks.
+    #
+    # Workaround (postRenderers below): remove the kubescape-volume emptyDir mount
+    # entirely. With the mount gone, the image's own /home/nonroot/.kubescape/
+    # directory is used, and the kubescape binary can create config.json as a
+    # real file. The constraint above is widened to 1.x so Flux picks up the
+    # upstream chart fix automatically when a corrected release is available, at
+    # which point the postRenderers block can be removed.
     configurations:
       prometheusAnnotations: disable
+  # Remove the broken emptyDir subPath mount for config.json. See comment above.
+  # Indices confirmed against kubescape-operator 1.40.2 Deployment spec:
+  #   containers[0].volumeMounts[1] → /home/nonroot/.kubescape/config.json (subPath: config.json)
+  #   volumes[3]                    → kubescape-volume (emptyDir)
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Deployment
+              name: kubescape
+              namespace: kubescape
+            patch: |
+              - op: remove
+                path: /spec/template/spec/containers/0/volumeMounts/1
+              - op: remove
+                path: /spec/template/spec/volumes/3
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
