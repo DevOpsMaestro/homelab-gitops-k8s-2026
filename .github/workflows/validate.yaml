@@ -70,7 +70,7 @@ jobs:
 
       - name: Install Kubescape CLI
         env:
-          KUBESCAPE_VERSION: v4.0.9
+          KUBESCAPE_VERSION: v4.0.10
         run: |
           VERSION_CLEAN="${KUBESCAPE_VERSION#v}"
           ARCH=$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')
