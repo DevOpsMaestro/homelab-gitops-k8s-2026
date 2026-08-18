@@ -25,4 +25,4 @@ patches:
         namespace: flux-system
       spec:
         ref:
-          branch: main
+          branch: fix/flux-bootstrap-ruleset-bypass

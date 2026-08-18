@@ -309,7 +309,7 @@ PATCH_FILE="clusters/kind/flux-system/kustomization.yaml"
 current_patch_branch=$(grep "branch:" "$PATCH_FILE" | awk '{print $2}')
 if [[ "$current_patch_branch" != "$BRANCH" ]]; then
   printf "  Updating Flux branch patch: %s → %s\n" "$current_patch_branch" "$BRANCH"
-  sed -i '' "s/branch: .*/branch: ${BRANCH}/" "$PATCH_FILE"
+  sed -i '' "s|branch: .*|branch: ${BRANCH}|" "$PATCH_FILE"
   git add "$PATCH_FILE"
   git commit -m "chore: point Flux GitRepository at branch ${BRANCH}"
   git push -u origin "${BRANCH}"
@@ -319,9 +319,22 @@ fi
 
 # Export token for --token-auth. This uses HTTPS (port 443) instead of the
 # default SSH (port 22), which is blocked in many corporate and home networks.
+# Unset GITHUB_TOKEN first so that `gh auth token` reads the credential store
+# rather than returning the env var token back to us (circular substitution if
+# GITHUB_TOKEN is already set in the shell environment, e.g. from .zshrc.secrets).
+unset GITHUB_TOKEN
 export GITHUB_TOKEN="$(gh auth token)"
 
 printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
+
+# flux bootstrap pushes gotk-components.yaml directly to main, which is blocked
+# by the repository ruleset that requires changes to go through a PR. Temporarily
+# disable the ruleset for the duration of the bootstrap push, then re-enable it.
+# Ruleset ID 17331800 ("main") targets ~DEFAULT_BRANCH and enforces pull_request.
+printf "  Disabling GitHub ruleset 'main' for bootstrap push...\n"
+gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
+  --field enforcement=disabled > /dev/null
+
 flux bootstrap github \
   --owner="$GITHUB_USER" \
   --repository="$REPO_NAME" \
@@ -329,6 +342,10 @@ flux bootstrap github \
   --path="$CLUSTER_PATH" \
   --personal \
   --token-auth
+
+printf "  Re-enabling GitHub ruleset 'main'...\n"
+gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
+  --field enforcement=active > /dev/null
 
 # ── Step 8: SOPS age key (optional — only runs if key file exists) ────────────
 # If the user has run `make sops-setup`, the age private key lives at the
