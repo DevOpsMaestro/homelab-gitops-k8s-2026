@@ -309,7 +309,7 @@ PATCH_FILE="clusters/kind/flux-system/kustomization.yaml"
 current_patch_branch=$(grep "branch:" "$PATCH_FILE" | awk '{print $2}')
 if [[ "$current_patch_branch" != "$BRANCH" ]]; then
   printf "  Updating Flux branch patch: %s → %s\n" "$current_patch_branch" "$BRANCH"
-  sed -i '' "s/branch: .*/branch: ${BRANCH}/" "$PATCH_FILE"
+  sed -i '' "s|branch: .*|branch: ${BRANCH}|" "$PATCH_FILE"
   git add "$PATCH_FILE"
   git commit -m "chore: point Flux GitRepository at branch ${BRANCH}"
   git push -u origin "${BRANCH}"
