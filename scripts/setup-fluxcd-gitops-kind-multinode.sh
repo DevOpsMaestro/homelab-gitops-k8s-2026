@@ -319,6 +319,10 @@ fi
 
 # Export token for --token-auth. This uses HTTPS (port 443) instead of the
 # default SSH (port 22), which is blocked in many corporate and home networks.
+# Unset GITHUB_TOKEN first so that `gh auth token` reads the credential store
+# rather than returning the env var token back to us (circular substitution if
+# GITHUB_TOKEN is already set in the shell environment, e.g. from .zshrc.secrets).
+unset GITHUB_TOKEN
 export GITHUB_TOKEN="$(gh auth token)"
 
 printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
