@@ -59,26 +59,34 @@ spec:
       # 400 "missing account id" error on every scan cycle because no account
       # or accessKey is configured. Enable offline mode to suppress this.
       kubescapeOffline: enable
-    # Known chart issue (kubescape-operator ≤1.40.x): the chart mounts an emptyDir
-    # volume with subPath: config.json at /home/nonroot/.kubescape/config.json.
-    # Kubernetes creates the subPath entry as a directory before any container
-    # starts, so the kubescape CLI binary finds a directory at that path instead
-    # of a writable file. This causes every scan cycle to fail with:
+    # Known chart issue (kubescape-operator ≤1.40.x): the chart mounts the
+    # kubescape-volume emptyDir with subPath: config.json at
+    # /home/nonroot/.kubescape/config.json. Kubernetes pre-creates the subPath
+    # entry as a directory before any container starts, so kubescape finds a
+    # directory at that path instead of a writable file and fails with:
     #   open /home/nonroot/.kubescape/config.json: is a directory
-    # and produces 0.00 compliance scores across all frameworks.
     #
-    # Workaround (postRenderers below): remove the kubescape-volume emptyDir mount
-    # entirely. With the mount gone, the image's own /home/nonroot/.kubescape/
-    # directory is used, and the kubescape binary can create config.json as a
-    # real file. The constraint above is widened to 1.x so Flux picks up the
-    # upstream chart fix automatically when a corrected release is available, at
-    # which point the postRenderers block can be removed.
+    # A previous postRenderer removed the volume entirely. That exposed a second
+    # issue: the container sets readOnlyRootFilesystem: true, so without the
+    # emptyDir overlay the /home/nonroot/.kubescape/ directory is part of the
+    # read-only image filesystem. Kubescape tries to chmod that directory on
+    # startup and fails with:
+    #   chmod /home/nonroot/.kubescape: read-only file system
+    # which also produces 0.00 compliance scores.
+    #
+    # Correct workaround (postRenderers below): replace the subPath file mount
+    # with a directory-level mount of the same emptyDir volume. This gives
+    # kubescape a writable /home/nonroot/.kubescape/ directory so it can create
+    # config.json as a normal file. The volume itself is kept.
+    #
+    # The constraint is widened to 1.x so Flux picks up the upstream chart fix
+    # automatically; remove the postRenderers block when that fix ships.
     configurations:
       prometheusAnnotations: disable
-  # Remove the broken emptyDir subPath mount for config.json. See comment above.
-  # Indices confirmed against kubescape-operator 1.40.2 Deployment spec:
+  # Replace the broken subPath config.json mount with a directory-level mount.
+  # See comment above. Indices confirmed against kubescape-operator 1.40.x spec:
   #   containers[0].volumeMounts[1] → /home/nonroot/.kubescape/config.json (subPath: config.json)
-  #   volumes[3]                    → kubescape-volume (emptyDir)
+  #   volumes[3]                    → kubescape-volume (emptyDir) — kept, not removed
   postRenderers:
     - kustomize:
         patches:
@@ -87,10 +95,11 @@ spec:
               name: kubescape
               namespace: kubescape
             patch: |
-              - op: remove
+              - op: replace
                 path: /spec/template/spec/containers/0/volumeMounts/1
-              - op: remove
-                path: /spec/template/spec/volumes/3
+                value:
+                  name: kubescape-volume
+                  mountPath: /home/nonroot/.kubescape
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
