@@ -9,6 +9,20 @@ GITHUB_USER="DevOpsMaestro"
 REPO_NAME="homelab-gitops-k8s-2026"
 BRANCH="${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}"
 CLUSTER_PATH="clusters/kind"
+RULESET_ID=17331800     # GitHub Ruleset "main" — enforces PR requirement on ~DEFAULT_BRANCH
+_ruleset_disabled=0
+
+# Re-enable the GitHub ruleset on any exit (normal or error). The || true
+# prevents the trap itself from masking the original exit code.
+_cleanup_ruleset() {
+  if [[ "${_ruleset_disabled}" -eq 1 ]]; then
+    printf "  Re-enabling GitHub ruleset 'main' (cleanup)...\n"
+    gh api --method PATCH \
+      "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/${RULESET_ID}" \
+      --field enforcement=active > /dev/null || true
+  fi
+}
+trap _cleanup_ruleset EXIT
 
 LOCAL_ARCH=$(uname -m)
 if [[ "$LOCAL_ARCH" == "arm64" ]]; then
@@ -323,17 +337,29 @@ fi
 # rather than returning the env var token back to us (circular substitution if
 # GITHUB_TOKEN is already set in the shell environment, e.g. from .zshrc.secrets).
 unset GITHUB_TOKEN
-export GITHUB_TOKEN="$(gh auth token)"
+GITHUB_TOKEN="$(gh auth token)"   # set -e fires here if gh auth token exits non-zero
+export GITHUB_TOKEN
 
 printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
 
 # flux bootstrap pushes gotk-components.yaml directly to main, which is blocked
-# by the repository ruleset that requires changes to go through a PR. Temporarily
-# disable the ruleset for the duration of the bootstrap push, then re-enable it.
-# Ruleset ID 17331800 ("main") targets ~DEFAULT_BRANCH and enforces pull_request.
-printf "  Disabling GitHub ruleset 'main' for bootstrap push...\n"
-gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
-  --field enforcement=disabled > /dev/null
+# by the repository ruleset that requires changes to go through a PR.
+#
+# Strategy: try to disable the ruleset via the API before the push and re-enable
+# it via the EXIT trap (top of script) regardless of how bootstrap exits.
+# The PATCH requires a fine-grained PAT with "Administration: write" permission.
+# OAuth tokens issued by the gh CLI (gho_) return 404 on this endpoint even with
+# 'repo' scope — the disable is skipped silently, and bootstrap succeeds if
+# your GitHub user is a bypass actor on the ruleset:
+#   GitHub → Settings → Rules → "main" → Bypass list → add yourself (Always)
+printf "  Attempting to disable GitHub ruleset 'main' for bootstrap push...\n"
+if gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/${RULESET_ID}" \
+    --field enforcement=disabled > /dev/null 2>&1; then
+  printf "  Ruleset disabled.\n"
+  _ruleset_disabled=1
+else
+  printf "  Ruleset disable skipped (token lacks admin access — bypass actor required).\n"
+fi
 
 flux bootstrap github \
   --owner="$GITHUB_USER" \
@@ -342,10 +368,6 @@ flux bootstrap github \
   --path="$CLUSTER_PATH" \
   --personal \
   --token-auth
-
-printf "  Re-enabling GitHub ruleset 'main'...\n"
-gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
-  --field enforcement=active > /dev/null
 
 # ── Step 8: SOPS age key (optional — only runs if key file exists) ────────────
 # If the user has run `make sops-setup`, the age private key lives at the
