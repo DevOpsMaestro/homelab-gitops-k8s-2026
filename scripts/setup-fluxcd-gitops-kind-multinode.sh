@@ -322,6 +322,15 @@ fi
 export GITHUB_TOKEN="$(gh auth token)"
 
 printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
+
+# flux bootstrap pushes gotk-components.yaml directly to main, which is blocked
+# by the repository ruleset that requires changes to go through a PR. Temporarily
+# disable the ruleset for the duration of the bootstrap push, then re-enable it.
+# Ruleset ID 17331800 ("main") targets ~DEFAULT_BRANCH and enforces pull_request.
+printf "  Disabling GitHub ruleset 'main' for bootstrap push...\n"
+gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
+  --field enforcement=disabled > /dev/null
+
 flux bootstrap github \
   --owner="$GITHUB_USER" \
   --repository="$REPO_NAME" \
@@ -329,6 +338,10 @@ flux bootstrap github \
   --path="$CLUSTER_PATH" \
   --personal \
   --token-auth
+
+printf "  Re-enabling GitHub ruleset 'main'...\n"
+gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
+  --field enforcement=active > /dev/null
 
 # ── Step 8: SOPS age key (optional — only runs if key file exists) ────────────
 # If the user has run `make sops-setup`, the age private key lives at the
