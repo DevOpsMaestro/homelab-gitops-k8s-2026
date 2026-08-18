@@ -104,75 +104,13 @@ spec:
       zipkin:
         enabled: false
 
-    config:
-      extensions:
-        health_check:
-          endpoint: 0.0.0.0:13133
-
-      receivers:
-        otlp:
-          protocols:
-            grpc:
-              endpoint: 0.0.0.0:4317
-            http:
-              endpoint: 0.0.0.0:4318
-
-      processors:
-        # memory_limiter intentionally omitted: chart default uses limit_percentage/spike_limit_percentage
-        # which cannot coexist with limit_mib/spike_limit_mib (OTel validates mutual exclusivity).
-        # Default: 80% of resources.limits.memory (256Mi) ≈ 205Mi.
-        k8s_attributes:
-          auth_type: serviceAccount
-          passthrough: false
-          extract:
-            metadata:
-              - k8s.pod.name
-              - k8s.pod.uid
-              - k8s.deployment.name
-              - k8s.namespace.name
-              - k8s.node.name
-              - k8s.pod.start_time
-          pod_association:
-            # First try the pod IP carried as a resource attribute (set by Istio/Envoy)
-            - sources:
-                - from: resource_attribute
-                  name: k8s.pod.ip
-            # Fall back to the incoming connection's source IP
-            - sources:
-                - from: connection
-        batch:
-          timeout: 1s
-          send_batch_size: 512
-
-      exporters:
-        otlp_grpc/tempo:
-          endpoint: observability-tempo.observability.svc.cluster.local:4317
-          tls:
-            insecure: true
-          retry_on_failure:
-            enabled: true
-            initial_interval: 5s
-            max_interval: 30s
-            max_elapsed_time: 300s
-          sending_queue:
-            enabled: true
-            num_consumers: 4
-            queue_size: 100
-
-      service:
-        extensions: [health_check]
-        pipelines:
-          traces:
-            receivers: [otlp]
-            processors: [memory_limiter, k8s_attributes, batch]
-            exporters: [otlp_grpc/tempo]
-        telemetry:
-          logs:
-            level: warn
-          # resource.attributes (new format) cannot coexist with the chart's
-          # default inline map keys (host.name, k8s.namespace.name, ...) because
-          # OTel Collector 0.153.0 rejects the combination with a validation error.
-          # Helm deep-merge cannot remove chart-default keys, so we cannot cleanly
-          # switch to the new format without a postRenderer. The legacy inline map
-          # triggers a deprecation WARNING (not an error) and is functionally
-          # correct — accept it until the chart updates its defaults.
+    # Provide the collector config via a standalone ConfigMap rather than
+    # letting the chart generate it. This bypasses Helm's deep-merge, which
+    # cannot null-out the chart's default telemetry.resource inline keys —
+    # those keys would coexist with the new attributes array format and cause
+    # an OTel validation error in collector ≥0.153.0.
+    # The ConfigMap is defined in configmap.yaml; Flux applies it before the
+    # HelmRelease so the pod always finds it on startup.
+    configMap:
+      create: false
+      existingName: opentelemetry-collector-config
