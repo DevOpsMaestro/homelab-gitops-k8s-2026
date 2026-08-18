@@ -328,12 +328,32 @@ export GITHUB_TOKEN="$(gh auth token)"
 printf "[7/10] Bootstrapping Flux to GitHub repo: $GITHUB_USER/$REPO_NAME\n"
 
 # flux bootstrap pushes gotk-components.yaml directly to main, which is blocked
-# by the repository ruleset that requires changes to go through a PR. Temporarily
-# disable the ruleset for the duration of the bootstrap push, then re-enable it.
-# Ruleset ID 17331800 ("main") targets ~DEFAULT_BRANCH and enforces pull_request.
-printf "  Disabling GitHub ruleset 'main' for bootstrap push...\n"
-gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
-  --field enforcement=disabled > /dev/null
+# by the repository ruleset that requires changes to go through a PR.
+#
+# Two strategies — the script tries both in order:
+#
+# 1. Disable / re-enable the ruleset via the API (requires a fine-grained PAT
+#    with "Administration: write" permission). OAuth tokens issued by the gh CLI
+#    return 404 on the PATCH even with 'repo' scope — GitHub silently treats
+#    missing admin permission as Not Found on this endpoint.
+#
+# 2. Bypass actor (preferred, zero-downtime): add your GitHub user account to
+#    the ruleset's bypass_actors list via the web UI once:
+#      GitHub → Settings → Rules → "main" → Bypass list → Add yourself
+#      (bypass mode: Always)
+#    With that in place, your token can push directly and the PATCH below is a
+#    no-op — the script degrades gracefully if it fails.
+RULESET_ID=17331800
+_ruleset_disabled=0
+printf "  Attempting to disable GitHub ruleset for bootstrap push...\n"
+if gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/${RULESET_ID}" \
+    --field enforcement=disabled > /dev/null 2>&1; then
+  printf "  Ruleset disabled.\n"
+  _ruleset_disabled=1
+else
+  printf "  Ruleset PATCH skipped (token lacks admin access).\n"
+  printf "  Bootstrap will succeed if %s is a bypass actor on the ruleset.\n" "$GITHUB_USER"
+fi
 
 flux bootstrap github \
   --owner="$GITHUB_USER" \
@@ -343,9 +363,11 @@ flux bootstrap github \
   --personal \
   --token-auth
 
-printf "  Re-enabling GitHub ruleset 'main'...\n"
-gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/17331800" \
-  --field enforcement=active > /dev/null
+if [[ "$_ruleset_disabled" -eq 1 ]]; then
+  printf "  Re-enabling GitHub ruleset 'main'...\n"
+  gh api --method PATCH "repos/${GITHUB_USER}/${REPO_NAME}/rulesets/${RULESET_ID}" \
+    --field enforcement=active > /dev/null
+fi
 
 # ── Step 8: SOPS age key (optional — only runs if key file exists) ────────────
 # If the user has run `make sops-setup`, the age private key lives at the
