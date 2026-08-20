@@ -58,7 +58,7 @@ jobs:
 
       - name: Install Kyverno CLI
         env:
-          KYVERNO_CLI_VERSION: v1.18.2
+          KYVERNO_CLI_VERSION: v1.19.0
         run: |
           ARCH=$(uname -m | sed 's/aarch64/arm64/')
           curl -LO "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_CLI_VERSION}/kyverno-cli_${KYVERNO_CLI_VERSION}_linux_${ARCH}.tar.gz"
